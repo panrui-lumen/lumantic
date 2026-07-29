@@ -9,14 +9,13 @@ export function FinalCta({ onRegisterClick }: { onRegisterClick: () => void }) {
 				<div className="animate-pulse-glow absolute top-1/2 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
 			</div>
 
-			<Reveal className="relative mx-auto max-w-3xl px-6 text-center">
+			<Reveal className="relative mx-auto max-w-5xl px-6 text-center">
 				<h2 className="font-display text-3xl font-semibold tracking-tight text-violet-50 sm:text-4xl">
-					Give your company its first data team
+					Get an end-to-end data solution without building a data team from scratch —{" "}
+					<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
+						in 2 months
+					</span>
 				</h2>
-				<p className="mx-auto mt-4 max-w-xl text-violet-200/65">
-					We're onboarding a small group of early design partners before opening Lumantic up more broadly. Register
-					your interest and we'll be in touch.
-				</p>
 				<GlowCta className="mt-9">
 					<button
 						onClick={onRegisterClick}

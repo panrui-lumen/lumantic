@@ -6,8 +6,6 @@ import { Hero } from "../components/sections/Hero";
 import { ProblemSection } from "../components/sections/ProblemSection";
 import { SolutionSection } from "../components/sections/SolutionSection";
 import { WorkedExample } from "../components/sections/WorkedExample";
-import { DataDepth } from "../components/sections/DataDepth";
-import { AboutSection } from "../components/sections/AboutSection";
 import { FinalCta } from "../components/sections/FinalCta";
 
 export function LandingPage() {
@@ -21,8 +19,6 @@ export function LandingPage() {
 				<ProblemSection />
 				<SolutionSection />
 				<WorkedExample />
-				<DataDepth />
-				<AboutSection />
 				<FinalCta onRegisterClick={() => setModalOpen(true)} />
 			</main>
 			<Footer />

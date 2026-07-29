@@ -17,7 +17,7 @@
 		{
 			"binding": "DB",
 			"database_name": "lumantic-db",
-			"database_id": "47267d0a-5fcb-4faa-a1c4-53157cc9c434",
+			"database_id": "02fb8461-a770-403e-8230-52fa043293cf",
 			"migrations_dir": "migrations"
 		}
 	]

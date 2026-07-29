@@ -1,68 +1,186 @@
-:root {
-	font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-	line-height: 1.5;
-	font-weight: 400;
+@import "tailwindcss";
 
-	color-scheme: light dark;
-	color: rgba(255, 255, 255, 0.87);
-	background-color: #242424;
+@theme {
+	--font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+	--font-sans: "Inter", system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-	font-synthesis: none;
-	text-rendering: optimizeLegibility;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
+	--color-void: #050409;
+	--color-ink: #0a0814;
+	--color-surface: #0f0c1c;
+
+	--color-violet-50: #f5f2ff;
+	--color-violet-100: #ede8ff;
+	--color-violet-200: #d8ccff;
+	--color-violet-300: #b9a0ff;
+	--color-violet-400: #9c7bff;
+	--color-violet-500: #8457f6;
+	--color-violet-600: #6d3ce0;
+	--color-violet-700: #562db8;
+	--color-violet-800: #3d2085;
+	--color-violet-900: #241354;
+	--color-violet-950: #150b34;
+
+	--animate-float: float 7s ease-in-out infinite;
+	--animate-float-slow: float 11s ease-in-out infinite;
+	--animate-pulse-glow: pulse-glow 3.5s ease-in-out infinite;
+	--animate-spin-slow: spin 16s linear infinite;
+	--animate-drift: drift 24s linear infinite;
+	--animate-rise: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+	@keyframes float {
+		0%,
+		100% {
+			transform: translateY(0) translateX(0);
+		}
+		50% {
+			transform: translateY(-18px) translateX(6px);
+		}
+	}
+	@keyframes pulse-glow {
+		0%,
+		100% {
+			opacity: 0.55;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1.06);
+		}
+	}
+	@keyframes drift {
+		from {
+			transform: translateX(0);
+		}
+		to {
+			transform: translateX(-50%);
+		}
+	}
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(24px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
 }
 
-a {
-	font-weight: 500;
-	color: #646cff;
-	text-decoration: inherit;
+@keyframes flow-x {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(600%);
+	}
 }
-a:hover {
-	color: #535bf2;
+@keyframes flow-y {
+	from {
+		transform: translateY(-100%);
+	}
+	to {
+		transform: translateY(600%);
+	}
+}
+@property --glow-angle {
+	syntax: "<angle>";
+	initial-value: 0deg;
+	inherits: false;
+}
+
+@keyframes glow-spin {
+	to {
+		--glow-angle: 360deg;
+	}
+}
+
+/* Sharp border (::after) + soft matching halo (::before). See https://theosoti.com/blog/animated-gradient-borders/ */
+.glow-cta::before,
+.glow-cta::after {
+	content: "";
+	position: absolute;
+	inset: -1.5px;
+	z-index: -1;
+	border-radius: inherit;
+	background: conic-gradient(
+		from var(--glow-angle),
+		transparent 40%,
+		#562db8 55%,
+		#9c7bff 70%,
+		#d8ccff 78%,
+		#9c7bff 86%,
+		#562db8 95%,
+		transparent 100%
+	);
+	animation: glow-spin 3s linear infinite;
+}
+
+.glow-cta::before {
+	filter: blur(0.85rem);
+	opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.glow-cta::before,
+	.glow-cta::after {
+		animation: none;
+	}
+}
+
+html {
+	scroll-behavior: smooth;
+	color-scheme: dark;
 }
 
 body {
 	margin: 0;
-	display: flex;
-	place-items: center;
-	min-width: 320px;
-	min-height: 100vh;
+	background: var(--color-void);
+	color: var(--color-violet-50);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
-h1 {
-	font-size: 3.2em;
-	line-height: 1.1;
+::selection {
+	background: var(--color-violet-500);
+	color: white;
 }
 
-button {
-	border-radius: 8px;
-	border: 1px solid transparent;
-	padding: 0.6em 1.2em;
-	font-size: 1em;
-	font-weight: 500;
-	font-family: inherit;
-	background-color: #1a1a1a;
-	cursor: pointer;
-	transition: border-color 0.25s;
+::-webkit-scrollbar {
+	width: 10px;
 }
-button:hover {
-	border-color: #646cff;
+::-webkit-scrollbar-track {
+	background: var(--color-void);
 }
-button:focus,
-button:focus-visible {
-	outline: 4px auto -webkit-focus-ring-color;
+::-webkit-scrollbar-thumb {
+	background: var(--color-violet-800);
+	border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--color-violet-600);
 }
 
-@media (prefers-color-scheme: light) {
-	:root {
-		color: #213547;
-		background-color: #ffffff;
-	}
-	a:hover {
-		color: #747bff;
-	}
-	button {
-		background-color: #f9f9f9;
-	}
+.text-glow {
+	text-shadow: 0 0 30px rgba(156, 123, 255, 0.55);
+}
+
+.bg-grid {
+	background-image:
+		linear-gradient(to right, rgba(156, 123, 255, 0.07) 1px, transparent 1px),
+		linear-gradient(to bottom, rgba(156, 123, 255, 0.07) 1px, transparent 1px);
+	background-size: 44px 44px;
+}
+
+.reveal {
+	opacity: 0;
+	transform: translateY(28px);
+	transition:
+		opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+		transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.is-visible {
+	opacity: 1;
+	transform: translateY(0);
 }

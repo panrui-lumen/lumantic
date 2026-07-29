@@ -4,6 +4,7 @@
 	"main": "./src/worker/index.ts",
 	"compatibility_date": "2025-10-08",
 	"compatibility_flags": ["nodejs_compat"],
+	"account_id": "768574865f8b799ad782a10b22ec1577",
 	"observability": {
 		"enabled": true
 	},
@@ -11,5 +12,13 @@
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "lumantic-db",
+			"database_id": "47267d0a-5fcb-4faa-a1c4-53157cc9c434",
+			"migrations_dir": "migrations"
+		}
+	]
 }

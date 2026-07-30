@@ -33,7 +33,7 @@ export function WorkedExample() {
 				/>
 
 				<Reveal delay={100} className="mx-auto mt-14 max-w-xl">
-					<div className="relative rounded-2xl border border-violet-400/30 bg-violet-500/10 px-6 py-5 text-center shadow-[0_0_50px_-15px_rgba(132,87,246,0.7)]">
+					<div className="relative rounded-2xl border border-violet-400/30 bg-violet-500/10 px-6 py-5 text-center shadow-[0_0_50px_-15px_rgba(143,99,248,0.7)]">
 						<span className="font-mono text-[10px] tracking-[0.2em] text-violet-300/70 uppercase">Worked example</span>
 						<p className="font-display mt-2 text-lg text-violet-50 sm:text-xl">Why did deposit conversion fall last week?</p>
 					</div>

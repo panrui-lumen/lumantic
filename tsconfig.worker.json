@@ -6,5 +6,5 @@
 		"jsx": "react-jsx",
 		"types": ["vite/client", "./worker-configuration.d.ts"]
 	},
-	"include": ["src/worker", "src/react-app"]
+	"include": ["src/worker", "src/react-app", "src/shared"]
 }

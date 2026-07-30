@@ -6,7 +6,8 @@ Landing page for **Lumantic**: an AI-native data team for growth-stage companies
 
 - **Landing page** (`/`): explains the product, with a "Register interest" CTA that opens a modal, collects an email, and saves it to a D1 database.
 - **Admin dashboard** (`/admin`): password-gated view of registrations, paginated, sortable (newest/oldest), searchable by email, with a one-click mailto action per row.
-- **Worker API** (`src/worker/index.ts`): Hono routes for registering interest and serving the admin dashboard data.
+- **Product app** (`/app`): the Lumantic product itself, gated behind a demo login (email `test@example.com`, password checked server-side). Includes a ChatGPT-style chat with the AI analyst, a Memories library (add/edit/delete), a Proposed Memories review queue (approve/edit/deny), and Settings for connecting Slack, picking a channel, and configuring what the bot posts. The Slack connection and AI chat are simulated for demo purposes.
+- **Worker API** (`src/worker/index.ts`, `src/worker/app-api.ts`): Hono routes for registering interest, serving the admin dashboard data, and powering the `/app` product experience.
 
 ## Stack
 

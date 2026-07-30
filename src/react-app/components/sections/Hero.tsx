@@ -27,7 +27,7 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 						<GlowCta>
 							<button
 								onClick={onRegisterClick}
-								className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-violet-500 to-violet-400 px-6 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
+								className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-violet-500 px-6 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
 							>
 								Register interest
 								<ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
@@ -58,7 +58,7 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 
 					<div className="animate-float relative">
 						<div aria-hidden className="animate-pulse-glow absolute inset-0 -m-8 rounded-full bg-violet-500/30 blur-[60px]" />
-						<img src={logo} alt="Lumantic" className="relative h-48 w-48 drop-shadow-[0_0_50px_rgba(156,123,255,0.55)] sm:h-56 sm:w-56" />
+						<img src={logo} alt="Lumantic" className="relative h-48 w-48 drop-shadow-[0_0_50px_rgba(184,148,255,0.55)] sm:h-56 sm:w-56" />
 					</div>
 				</div>
 			</div>

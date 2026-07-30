@@ -74,7 +74,7 @@ export function RegisterModal({ open, onClose }: { open: boolean; onClose: () =>
 				className="absolute inset-0 bg-void/80 backdrop-blur-sm animate-[rise_0.3s_ease-out]"
 			/>
 
-			<div className="animate-rise relative w-full max-w-md overflow-hidden rounded-2xl border border-violet-500/25 bg-ink shadow-[0_0_80px_-10px_rgba(132,87,246,0.5)]">
+			<div className="animate-rise relative w-full max-w-md overflow-hidden rounded-2xl border border-violet-500/25 bg-ink shadow-[0_0_80px_-10px_rgba(143,99,248,0.5)]">
 				<div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-violet-500/30 blur-[70px]" />
 
 				<button
@@ -131,7 +131,7 @@ export function RegisterModal({ open, onClose }: { open: boolean; onClose: () =>
 									<button
 										type="submit"
 										disabled={status === "loading"}
-										className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-violet-400 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+										className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
 									>
 										{status === "loading" && <SpinnerIcon className="size-4" />}
 										{status === "loading" ? "Submitting…" : "Register interest"}

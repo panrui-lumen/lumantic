@@ -53,7 +53,7 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 						<GlowCta>
 							<button
 								onClick={onRegisterClick}
-								className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-violet-500 to-violet-400 px-6 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
+								className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-violet-500 px-6 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
 							>
 								Register interest
 								<ArrowRight className="size-4 transition group-hover:translate-x-0.5" />

@@ -52,10 +52,10 @@ function LoginScreen({ onSuccess }: { onSuccess: (password: string) => void }) {
 
 			<form
 				onSubmit={handleSubmit}
-				className="relative w-full max-w-sm rounded-2xl border border-violet-500/20 bg-ink p-8 shadow-[0_0_80px_-15px_rgba(132,87,246,0.4)]"
+				className="relative w-full max-w-sm rounded-2xl border border-violet-500/20 bg-ink p-8 shadow-[0_0_80px_-15px_rgba(143,99,248,0.4)]"
 			>
 				<div className="flex flex-col items-center text-center">
-					<img src={logo} alt="Lumantic" className="h-10 w-10 drop-shadow-[0_0_16px_rgba(156,123,255,0.6)]" />
+					<img src={logo} alt="Lumantic" className="h-10 w-10 drop-shadow-[0_0_16px_rgba(184,148,255,0.6)]" />
 					<h1 className="font-display mt-4 text-lg font-semibold text-violet-50">Admin access</h1>
 					<p className="mt-1 text-sm text-violet-300/60">Enter the admin password to view registrations.</p>
 				</div>
@@ -77,7 +77,7 @@ function LoginScreen({ onSuccess }: { onSuccess: (password: string) => void }) {
 				<button
 					type="submit"
 					disabled={loading || !password}
-					className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-violet-400 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+					className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{loading && <SpinnerIcon className="size-4" />}
 					{loading ? "Checking…" : "Sign in"}

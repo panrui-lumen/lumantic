@@ -20,7 +20,7 @@ export function Nav({ onRegisterClick }: { onRegisterClick: () => void }) {
 		>
 			<nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 				<a href="#top" className="flex items-center gap-2.5">
-					<img src={logo} alt="Lumantic" className="h-7 w-7 drop-shadow-[0_0_12px_rgba(156,123,255,0.6)]" />
+					<img src={logo} alt="Lumantic" className="h-7 w-7 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
 					<span className="font-display text-lg font-semibold tracking-tight text-violet-50">Lumantic</span>
 				</a>
 

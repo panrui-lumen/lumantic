@@ -78,7 +78,7 @@ export function SolutionSection() {
 								<div
 									className={`relative flex h-full min-w-0 flex-col items-center justify-center rounded-2xl border px-4 py-6 text-center transition sm:px-5 ${
 										node.accent
-											? "border-violet-400/40 bg-violet-500/10 shadow-[0_0_40px_-15px_rgba(132,87,246,0.8)]"
+											? "border-violet-400/40 bg-violet-500/10 shadow-[0_0_40px_-15px_rgba(143,99,248,0.8)]"
 											: "border-violet-500/15 bg-white/[0.02]"
 									}`}
 								>

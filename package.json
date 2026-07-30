@@ -2,9 +2,13 @@
 	"name": "lumantic",
 	"description": "Landing page for Lumantic, an AI-native data team for growth-stage companies.",
 	"dependencies": {
+		"@radix-ui/react-dialog": "^1.1.23",
+		"@radix-ui/react-tooltip": "^1.2.16",
+		"@tanstack/react-query": "^5.101.4",
 		"hono": "4.11.1",
 		"react": "19.2.1",
-		"react-dom": "19.2.1"
+		"react-dom": "19.2.1",
+		"sonner": "^2.0.7"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "1.15.3",
@@ -29,6 +33,10 @@
 		"build": "tsc -b && vite build",
 		"cf-typegen": "wrangler types",
 		"check": "tsc && vite build && wrangler deploy --dry-run",
+		"db:migrate": "wrangler d1 migrations apply lumantic-db --local",
+		"db:migrate:remote": "wrangler d1 migrations apply lumantic-db --remote",
+		"db:seed": "wrangler d1 execute lumantic-db --local --file=./scripts/seed.sql",
+		"db:seed:remote": "wrangler d1 execute lumantic-db --remote --file=./scripts/seed.sql",
 		"deploy": "wrangler deploy",
 		"dev": "vite",
 		"lint": "eslint .",

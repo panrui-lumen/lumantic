@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { renderLandingPageHtml } from "./ssr";
+import appApi from "./app-api";
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.route("/api/app", appApi);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SITE_URL_PLACEHOLDER = "__SITE_URL__";

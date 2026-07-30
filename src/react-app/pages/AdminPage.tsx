@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import logo from "../assets/lumantic-logo.png";
-import { ChevronLeft, ChevronRight, LockIcon, LogOutIcon, MailIcon, SearchIcon, SpinnerIcon } from "../components/Icons";
+import { ChevronDown, ChevronLeft, ChevronRight, LockIcon, LogOutIcon, MailIcon, SearchIcon, SpinnerIcon } from "../components/Icons";
 
 const STORAGE_KEY = "lumantic_admin_password";
 const PAGE_SIZE = 12;
@@ -181,18 +181,21 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 							/>
 						</div>
 
-						<select
-							value={sort}
-							onChange={(e) => setSort(e.target.value as Sort)}
-							className="rounded-lg border border-violet-500/20 bg-white/[0.03] px-3 py-2 text-sm text-violet-100 outline-none transition focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/20"
-						>
-							<option value="newest" className="bg-ink">
-								Newest first
-							</option>
-							<option value="oldest" className="bg-ink">
-								Oldest first
-							</option>
-						</select>
+						<div className="relative">
+							<select
+								value={sort}
+								onChange={(e) => setSort(e.target.value as Sort)}
+								className="appearance-none rounded-lg border border-violet-500/20 bg-white/[0.03] py-2 pr-9 pl-3 text-sm text-violet-100 outline-none transition focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/20"
+							>
+								<option value="newest" className="bg-ink">
+									Newest first
+								</option>
+								<option value="oldest" className="bg-ink">
+									Oldest first
+								</option>
+							</select>
+							<ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-violet-400/50" />
+						</div>
 					</div>
 				</div>
 

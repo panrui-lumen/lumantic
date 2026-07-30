@@ -34,9 +34,6 @@ export function Nav({ onRegisterClick }: { onRegisterClick: () => void }) {
 					<a href="#how-it-works" className="transition hover:text-violet-50">
 						How it works
 					</a>
-					<a href="#company" className="transition hover:text-violet-50">
-						Company
-					</a>
 				</div>
 
 				<GlowCta>

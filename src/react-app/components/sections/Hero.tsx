@@ -12,15 +12,41 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 				<div className="animate-float absolute top-1/4 -right-16 h-80 w-80 rounded-full bg-violet-400/15 blur-[110px]" />
 			</div>
 
-			<div className="relative mx-auto grid max-w-6xl items-center gap-16 px-6 lg:grid-cols-[1.1fr_0.9fr]">
-				<div>
-					<h1 className="font-display text-4xl leading-[1.08] font-semibold tracking-tight text-violet-50 sm:text-5xl lg:text-[3.4rem]">
-						Your growth outpaced your <span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">ability to build a data team</span>
+			<div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.7fr)] lg:gap-8">
+				<div className="min-w-0">
+					<h1 className="font-display tracking-tight">
+						<span className="block whitespace-nowrap text-[1.35rem] leading-[1.35] font-medium text-violet-200/55 sm:text-2xl lg:text-[1.75rem] xl:text-[2rem]">
+							<span className="text-violet-100/90">Growing fast.</span>
+							<span className="mx-2 text-violet-500/35" aria-hidden>
+								·
+							</span>
+							<span className="text-violet-100/90">Messy data.</span>
+							<span className="mx-2 text-violet-500/35" aria-hidden>
+								·
+							</span>
+							<span className="text-violet-100/90">No data team.</span>
+							<span className="mx-2 text-violet-500/35" aria-hidden>
+								·
+							</span>
+							<span className="text-violet-100/90">Slow answers.</span>
+						</span>
+						<span className="mt-5 block text-[1.85rem] leading-[1.15] font-semibold text-violet-50 sm:text-[2.5rem] lg:text-[2.85rem] xl:text-[3.2rem]">
+							<span className="block whitespace-nowrap">
+								<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
+									Lumantic fixes all three
+								</span>{" "}
+								<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
+									in 2 months
+								</span>
+							</span>
+							<span className="mt-1 block whitespace-nowrap">to help you grow even faster.</span>
+						</span>
 					</h1>
 
 					<p className="mt-6 max-w-xl text-lg text-violet-200/70">
-						Product events, payments, databases, market APIs, and a graveyard of spreadsheets. Every fast-growing
-						company ends up here. Lumantic is the AI-native data team that stitches it all back together.
+						We build and run your data warehouse — human-ready, AI-ready, and cost-effective. Our trained Data Agent
+						watches it 24/7, continuously learns, and answers your team's questions with high accuracy and a broad
+						knowledge base.
 					</p>
 
 					<div className="mt-9 flex flex-wrap items-center gap-4">
@@ -42,9 +68,9 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 					</div>
 				</div>
 
-				<div className="relative mx-auto flex h-80 w-80 items-center justify-center sm:h-96 sm:w-96">
+				<div className="relative mx-auto flex h-56 w-56 shrink-0 items-center justify-center sm:h-64 sm:w-64 lg:mx-0 lg:justify-self-end">
 					<div aria-hidden className="animate-spin-slow absolute inset-0 rounded-full border border-dashed border-violet-400/20" />
-					<div aria-hidden className="absolute inset-8 rounded-full border border-violet-400/10" />
+					<div aria-hidden className="absolute inset-6 rounded-full border border-violet-400/10" />
 
 					{[0, 90, 180, 270].map((deg) => (
 						<div
@@ -52,13 +78,17 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 							className="animate-spin-slow absolute inset-0"
 							style={{ animationDuration: "16s", transform: `rotate(${deg}deg)` }}
 						>
-							<span className="absolute top-0 left-1/2 size-2 -translate-x-1/2 rounded-full bg-violet-300 shadow-[0_0_12px_4px_rgba(184,160,255,0.6)]" />
+							<span className="absolute top-0 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-violet-300 shadow-[0_0_10px_3px_rgba(184,160,255,0.55)]" />
 						</div>
 					))}
 
 					<div className="animate-float relative">
-						<div aria-hidden className="animate-pulse-glow absolute inset-0 -m-8 rounded-full bg-violet-500/30 blur-[60px]" />
-						<img src={logo} alt="Lumantic" className="relative h-48 w-48 drop-shadow-[0_0_50px_rgba(184,148,255,0.55)] sm:h-56 sm:w-56" />
+						<div aria-hidden className="animate-pulse-glow absolute inset-0 -m-6 rounded-full bg-violet-500/30 blur-[50px]" />
+						<img
+							src={logo}
+							alt="Lumantic"
+							className="relative h-32 w-32 drop-shadow-[0_0_40px_rgba(156,123,255,0.55)] sm:h-36 sm:w-36"
+						/>
 					</div>
 				</div>
 			</div>

@@ -2,16 +2,17 @@ import { Reveal } from "../Reveal";
 import { SectionHeading } from "../SectionHeading";
 
 const SYSTEMS = [
-	{ name: "Product events", detail: "signups · activation" },
-	{ name: "Payments", detail: "attempts · outcomes" },
-	{ name: "Database", detail: "users · market activity" },
-	{ name: "Market APIs", detail: "liquidity · competition" },
+	{ name: "Analytics events", detail: "signups · activation" },
+	{ name: "Webhooks", detail: "payment attempts · outcomes" },
+	{ name: "Database", detail: "users · orders" },
+	{ name: "Market APIs", detail: "competitor data · market activity" },
 ];
 
 const QUESTIONS = [
-	{ tag: "Growth", question: "How are signups?" },
-	{ tag: "Product", question: "Why did deposits fall?" },
-	{ tag: "Strategy", question: "Where should we expand?" },
+	{ tag: "Growth", question: "How are signups, activations and churn?" },
+	{ tag: "Product", question: "Why did deposits fall, which funnel step should we optimize?" },
+	{ tag: "Experimentation", question: "How is our new feature performing, should we roll out to all users?" },
+	{ tag: "Strategy", question: "Where should we expand, which markets should we enter?" },
 ];
 
 export function ProblemSection() {
@@ -19,8 +20,8 @@ export function ProblemSection() {
 		<section id="problem" className="relative border-t border-violet-500/10 py-28">
 			<div className="mx-auto max-w-6xl px-6">
 				<SectionHeading
-					title="Four systems. No owner. No shared definitions."
-					subtitle="Every fast-growing company scatters its truth across tools that were never meant to talk to each other."
+					title="Your data lives in four places. Your answers live in none of them."
+					subtitle="Events, webhooks, databases, and APIs each hold part of the picture — but without a proper warehouse and someone who knows it inside out, every question becomes a manual investigation."
 				/>
 
 				<div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -41,11 +42,11 @@ export function ProblemSection() {
 					<Reveal>
 						<span className="font-mono text-[11px] tracking-[0.2em] text-violet-400/70 uppercase">Questions keep arriving</span>
 						<h3 className="font-display mt-3 text-2xl font-semibold text-violet-50 sm:text-3xl">
-							Every team needs answers. Nobody owns the data system.
+							Teams need answers now. Hiring a senior data scientist takes months.
 						</h3>
 						<p className="mt-4 text-violet-200/65">
-							Growth, product, and strategy all ask the same warehouse for different truths, and today, all three get
-							a Slack thread instead of an answer.
+							Growth, product, and strategy all ask the same questions — but without a trusted warehouse and someone
+							who can interpret it, every request turns into a Slack thread instead of a clear answer.
 						</p>
 					</Reveal>
 

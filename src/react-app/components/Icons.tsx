@@ -40,6 +40,14 @@ export function ChevronRight({ className = "size-4" }: { className?: string }) {
 	);
 }
 
+export function ChevronDown({ className = "size-4" }: { className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth={2}>
+			<path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	);
+}
+
 export function ArrowRight({ className = "size-4" }: { className?: string }) {
 	return (
 		<svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth={2}>

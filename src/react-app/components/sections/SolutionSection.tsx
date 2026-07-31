@@ -66,7 +66,9 @@ export function SolutionSection() {
 
 			<div className="relative mx-auto max-w-7xl px-6">
 				<SectionHeading
-					title="Lumantic is your first and forever data team."
+					title={
+						<span className="sm:whitespace-nowrap">Lumantic is your first and forever data team.</span>
+					}
 					subtitle="We build and maintain a warehouse your team and AI tools can trust — cost-effectively. Our trained Data Agent watches it 24/7 and answers questions with the accuracy and breadth of a senior data scientist."
 					align="center"
 				/>

@@ -20,7 +20,13 @@ export function ProblemSection() {
 		<section id="problem" className="relative border-t border-violet-500/10 py-28">
 			<div className="mx-auto max-w-6xl px-6">
 				<SectionHeading
-					title="Your data lives in four places. Your answers live in none of them."
+					title={
+						<>
+							Your data lives in four places.
+							<br />
+							Your answers live in none of them.
+						</>
+					}
 					subtitle="Events, webhooks, databases, and APIs each hold part of the picture — but without a proper warehouse and someone who knows it inside out, every question becomes a manual investigation."
 				/>
 
@@ -42,7 +48,9 @@ export function ProblemSection() {
 					<Reveal>
 						<span className="font-mono text-[11px] tracking-[0.2em] text-violet-400/70 uppercase">Questions keep arriving</span>
 						<h3 className="font-display mt-3 text-2xl font-semibold text-violet-50 sm:text-3xl">
-							Teams need answers now. Hiring a senior data scientist takes months.
+							Teams need answers now.
+							<br />
+							Hiring a senior data scientist takes months.
 						</h3>
 						<p className="mt-4 text-violet-200/65">
 							Growth, product, and strategy all ask the same questions — but without a trusted warehouse and someone

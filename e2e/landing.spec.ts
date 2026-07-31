@@ -15,14 +15,32 @@ async function pageHasHorizontalOverflow(page: import("@playwright/test").Page) 
 }
 
 test.describe("landing page", () => {
+	test("uses yellow favicon in local Vite serve", async ({ page }) => {
+		await page.goto("/", { waitUntil: "domcontentloaded" });
+		const iconHref = await page.locator('link[rel="icon"]').getAttribute("href");
+		expect(iconHref).toBe("/lumantic-logo-dev.png");
+		const appleHref = await page.locator('link[rel="apple-touch-icon"]').getAttribute("href");
+		expect(appleHref).toBe("/lumantic-logo-dev.png");
+		const iconRes = await page.request.get("/lumantic-logo-dev.png");
+		expect(iconRes.ok()).toBe(true);
+	});
+
 	test("hero fits viewport without horizontal overflow", async ({ page }, testInfo) => {
 		const project = testInfo.project.name;
 		await page.goto("/", { waitUntil: "networkidle" });
 
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 		await expect(page.getByText("Growing fast.")).toBeVisible();
-		await expect(page.getByText(/Lumantic fixes all three in 2 months/i)).toBeVisible();
-		await expect(page.getByText("to help you grow even faster.")).toBeVisible();
+		await expect(page.getByText(/Lumantic fixes all three in 2[\s\u00a0]months/i)).toBeVisible();
+		await expect(page.getByText(/to help you grow even faster/i)).toBeVisible();
+
+		if (project === "desktop") {
+			const painLineHeight = await page.locator("h1 > span").first().evaluate((el) => el.getBoundingClientRect().height);
+			expect(painLineHeight).toBeLessThan(48);
+		}
+
+		const headline = page.locator("h1 > span").nth(1);
+		await expect(headline).toContainText(/Lumantic fixes all three in 2[\s\u00a0]months to help you grow even faster\./);
 
 		expect(await pageHasHorizontalOverflow(page)).toBe(false);
 

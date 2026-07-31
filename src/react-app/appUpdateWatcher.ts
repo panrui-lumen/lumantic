@@ -13,9 +13,9 @@ export type AppUpdateWatcherOptions = {
 	reload?: () => void;
 };
 
-/** Show the sticky “site updated, please reload” toast (re-shows if already open). */
+/** Show the sticky "site updated, please reload" toast (re-shows if already open). */
 export function promptAppUpdateToast(reload: () => void = () => window.location.reload()) {
-	toast.dismiss(APP_UPDATE_TOAST_ID);
+	// Same id replaces an existing toast; avoid dismiss()+create which can animate the new toast out.
 	toast(i18n.t("update.available"), {
 		id: APP_UPDATE_TOAST_ID,
 		duration: Infinity,
@@ -28,8 +28,8 @@ export function promptAppUpdateToast(reload: () => void = () => window.location.
 }
 
 /**
- * Poll `/version.json` (and listen for chunk-load failures) so open tabs can
- * prompt the user to reload after a deploy.
+ * Poll `/version.json` (and listen for chunk-load failures) so open /app tabs
+ * can prompt the user to reload after a deploy. Start this from AppPage only.
  */
 export function startAppUpdateWatcher(options: AppUpdateWatcherOptions = {}): () => void {
 	const currentBuildId = options.currentBuildId ?? "";

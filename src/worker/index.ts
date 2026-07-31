@@ -32,7 +32,7 @@ async function notifyWaitlistSlackChannel(env: Env, email: string) {
 			},
 			body: JSON.stringify({
 				channel: WAITLIST_SLACK_CHANNEL_ID,
-				text: `${email} was added to waitlist, you can view all in lumantic.ai/admin`,
+				text: `${email} was added to waitlist, you can view all in https://lumantic.ai/admin/waitlist`,
 			}),
 		});
 		const data = await res.json<{ ok: boolean; error?: string }>();

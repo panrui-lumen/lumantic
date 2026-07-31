@@ -2,12 +2,6 @@ import { StrictMode } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
-import { startAppUpdateWatcher } from "./appUpdateWatcher";
-
-// Prompt a reload when a newer deploy is live (or a stale chunk fails to load).
-startAppUpdateWatcher({
-	currentBuildId: import.meta.env.VITE_APP_BUILD_ID ?? "",
-});
 
 const container = document.getElementById("root")!;
 

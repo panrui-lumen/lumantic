@@ -749,6 +749,10 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [exporting, setExporting] = useState(false);
+	const [pendingDelete, setPendingDelete] = useState<Registration | null>(null);
+	const [deleting, setDeleting] = useState(false);
+	const [reloadToken, setReloadToken] = useState(0);
+	const [actionError, setActionError] = useState("");
 
 	useEffect(() => {
 		const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -762,7 +766,7 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 		setPage(1);
 	}
 
-	const fetchKey = `${page}\0${sort}\0${debouncedSearch}`;
+	const fetchKey = `${page}\0${sort}\0${debouncedSearch}\0${reloadToken}`;
 	const [fetchKeySource, setFetchKeySource] = useState(fetchKey);
 	if (fetchKey !== fetchKeySource) {
 		setFetchKeySource(fetchKey);
@@ -801,7 +805,7 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 		return () => {
 			cancelled = true;
 		};
-	}, [page, sort, debouncedSearch, password, onUnauthorized]);
+	}, [page, sort, debouncedSearch, reloadToken, password, onUnauthorized]);
 
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -832,6 +836,34 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 			setError("Couldn't export emails. Try again.");
 		} finally {
 			setExporting(false);
+		}
+	}
+
+	async function deleteRegistration() {
+		if (!pendingDelete) return;
+		setDeleting(true);
+		setActionError("");
+		try {
+			const res = await adminFetch(password, `/registrations/${pendingDelete.id}`, { method: "DELETE" });
+			if (res.status === 401) {
+				onUnauthorized();
+				return;
+			}
+			if (!res.ok) {
+				const data = (await res.json().catch(() => null)) as { error?: string } | null;
+				throw new Error(data?.error ?? "Failed to delete");
+			}
+			setPendingDelete(null);
+			if (rows.length === 1 && page > 1) {
+				setPage((p) => Math.max(1, p - 1));
+			} else {
+				setReloadToken((n) => n + 1);
+			}
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : "Couldn't remove that email. Try again.");
+			setPendingDelete(null);
+		} finally {
+			setDeleting(false);
 		}
 	}
 
@@ -878,13 +910,15 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 				</div>
 			</div>
 
+			{actionError ? <p className="mb-4 text-sm text-rose-300">{actionError}</p> : null}
+
 			<div className="overflow-hidden rounded-2xl border border-violet-500/15 bg-white/[0.02]">
 				<table className="w-full text-left text-sm">
 					<thead>
 						<tr className="border-b border-violet-500/10 text-xs tracking-wide text-violet-400/60 uppercase">
 							<th className="px-5 py-3.5 font-medium">Email</th>
 							<th className="px-5 py-3.5 font-medium">Registered</th>
-							<th className="px-5 py-3.5 text-right font-medium">Action</th>
+							<th className="px-5 py-3.5 text-right font-medium">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -915,15 +949,27 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 									<td className="px-5 py-3.5 text-violet-100">{row.email}</td>
 									<td className="px-5 py-3.5 font-mono text-xs text-violet-300/60">{formatDate(row.created_at)}</td>
 									<td className="px-5 py-3.5 text-right">
-										<Tooltip content={`Email ${row.email}`}>
-											<a
-												href={`mailto:${row.email}`}
-												aria-label={`Email ${row.email}`}
-												className="inline-flex size-8 items-center justify-center rounded-full text-violet-300/70 transition hover:bg-violet-500/15 hover:text-violet-100"
-											>
-												<MailIcon />
-											</a>
-										</Tooltip>
+										<div className="inline-flex items-center justify-end gap-0.5">
+											<Tooltip content={`Email ${row.email}`}>
+												<a
+													href={`mailto:${row.email}`}
+													aria-label={`Email ${row.email}`}
+													className="inline-flex size-8 items-center justify-center rounded-full text-violet-300/70 transition hover:bg-violet-500/15 hover:text-violet-100"
+												>
+													<MailIcon />
+												</a>
+											</Tooltip>
+											<Tooltip content={`Remove ${row.email}`}>
+												<button
+													type="button"
+													onClick={() => setPendingDelete(row)}
+													aria-label={`Remove ${row.email}`}
+													className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-violet-300/70 transition hover:bg-rose-500/15 hover:text-rose-300"
+												>
+													<TrashIcon className="size-3.5" />
+												</button>
+											</Tooltip>
+										</div>
 									</td>
 								</tr>
 							))
@@ -965,6 +1011,20 @@ function WaitlistTab({ password, onUnauthorized }: { password: string; onUnautho
 					</Tooltip>
 				</div>
 			</div>
+
+			{pendingDelete ? (
+				<ConfirmModal
+					title="Remove from waitlist?"
+					description={`Remove ${pendingDelete.email} from the email waitlist? They can register again later.`}
+					confirmLabel="Remove"
+					tone="danger"
+					busy={deleting}
+					onClose={() => {
+						if (!deleting) setPendingDelete(null);
+					}}
+					onConfirm={() => void deleteRegistration()}
+				/>
+			) : null}
 		</div>
 	);
 }

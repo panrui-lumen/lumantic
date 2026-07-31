@@ -18,6 +18,7 @@ import {
 	UserIcon,
 	UsersIcon,
 } from "../../components/Icons";
+import { promptAppUpdateToast } from "../../appUpdateWatcher";
 import { useAppAuth } from "./context";
 import { FEATURE_FLAG_DEFS, featureFlagsEnabled, toggleFeatureFlag, useFeatureFlagSnapshot } from "./featureFlags";
 import type { AppUser, Conversation } from "./types";
@@ -358,6 +359,17 @@ export function CommandPalette({
 								);
 							}),
 						},
+						{
+							id: "dev-app-update-toast",
+							label: "Simulate app update toast",
+							group: "Dev only",
+							keywords: "dev tools update reload refresh version bundle deploy",
+							icon: <AlertIcon className="size-4" />,
+							run: closeAnd(() => {
+								// Defer past the Cmd+K click so it does not dismiss the new toast.
+								window.setTimeout(() => promptAppUpdateToast(), 100);
+							}),
+						},
 						...FEATURE_FLAG_DEFS.map((flag) => {
 							const stored = flagSnapshot[flag.key];
 							const on = typeof stored === "boolean" ? stored : flag.defaultValue;
@@ -472,7 +484,7 @@ export function CommandPalette({
 											data-cmdk-index={index}
 											onMouseEnter={() => setActiveIndex(index)}
 											onClick={() => item.run()}
-											className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition ${
+											className={`flex w-full cursor-pointer items-center gap-3 px-3.5 py-2.5 text-left text-sm transition ${
 												active ? "bg-violet-500/15 text-violet-50" : "text-violet-200/80 hover:bg-white/[0.03]"
 											}`}
 										>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { SpinnerIcon } from "../../components/Icons";
+import { startAppUpdateWatcher } from "../../appUpdateWatcher";
 import { AppAuthProvider, useAppAuth } from "./context";
 import { queryClient } from "./queryClient";
 import { TooltipProvider } from "./ui";
@@ -245,6 +246,13 @@ function AppRouter() {
 }
 
 export function AppPage() {
+	// Only prompt for reload inside /app (not the landing page or other site routes).
+	useEffect(() => {
+		return startAppUpdateWatcher({
+			currentBuildId: import.meta.env.VITE_APP_BUILD_ID ?? "",
+		});
+	}, []);
+
 	return (
 		<QueryClientProvider client={queryClient}>
 			<AppAuthProvider>

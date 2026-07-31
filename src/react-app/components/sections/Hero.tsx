@@ -17,9 +17,9 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 			<div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 sm:px-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,0.7fr)] lg:gap-8">
 				<div className="min-w-0">
 					<h1 className="font-display tracking-tight">
-						<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[1.15rem] leading-[1.35] font-medium text-violet-200/55 sm:text-2xl lg:text-[1.75rem] xl:text-[2rem]">
+						<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[1.15rem] leading-[1.35] font-medium text-violet-200/55 sm:text-2xl lg:flex-nowrap lg:gap-x-2.5 lg:text-[1.45rem] xl:text-[1.65rem]">
 							{PAIN_POINTS.map((phrase, i) => (
-								<span key={phrase} className="inline-flex items-center gap-2">
+								<span key={phrase} className="inline-flex shrink-0 items-center gap-2">
 									{i > 0 ? (
 										<span className="text-violet-500/35" aria-hidden>
 											·
@@ -31,9 +31,9 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 						</span>
 						<span className="mt-5 block text-[1.7rem] leading-[1.2] font-semibold text-violet-50 sm:text-[2.5rem] sm:leading-[1.15] lg:text-[2.85rem] xl:text-[3.2rem]">
 							<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
-								Lumantic fixes all three in 2 months
-							</span>
-							<span className="mt-1 block">to help you grow even faster.</span>
+								Lumantic fixes all three in 2&nbsp;months
+							</span>{" "}
+							to help you grow even faster.
 						</span>
 					</h1>
 

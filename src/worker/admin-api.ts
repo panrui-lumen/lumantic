@@ -355,6 +355,32 @@ adminApi.get("/registrations/export", async (c) => {
 	}
 });
 
+adminApi.delete("/registrations/:id", async (c) => {
+	const id = Number(c.req.param("id"));
+	if (!Number.isInteger(id) || id < 1) return c.json({ error: "Invalid id" }, 400);
+
+	try {
+		const existing = await c.env.DB.prepare("SELECT id, email, created_at FROM registrations WHERE id = ?")
+			.bind(id)
+			.first<{ id: number; email: string; created_at: string }>();
+		if (!existing) return c.json({ error: "Registration not found" }, 404);
+
+		await c.env.DB.prepare("DELETE FROM registrations WHERE id = ?").bind(id).run();
+
+		await recordAudit(c.env, {
+			action: "waitlist.delete",
+			summary: `Removed ${existing.email} from the waitlist`,
+			targetEmail: existing.email,
+			meta: { registrationId: existing.id, createdAt: existing.created_at },
+		});
+
+		return c.json({ ok: true });
+	} catch (err) {
+		console.error("Failed to delete registration", err);
+		return c.json({ error: "Something went wrong" }, 500);
+	}
+});
+
 adminApi.get("/overview", async (c) => {
 	try {
 		const [registrations, workspaces, overdue, openTickets, members] = await Promise.all([

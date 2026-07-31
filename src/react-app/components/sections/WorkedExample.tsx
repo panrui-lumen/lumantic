@@ -413,7 +413,7 @@ export function WorkedExample() {
 		<section id="how-it-works" className="relative border-t border-violet-500/10 py-28">
 			<div className="mx-auto max-w-7xl px-6">
 				<SectionHeading
-					title="From raw sources to a trusted answer"
+					title="From raw sources to a trusted answer."
 					subtitle="We ingest messy payloads from every system, model them into a semantic layer your team can trust, then our Data Agent queries it to answer questions in plain language."
 					align="center"
 				/>
@@ -564,7 +564,7 @@ export function WorkedExample() {
 					<div className="mx-auto max-w-4xl rounded-2xl border border-violet-500/15 bg-white/[0.02] p-6 sm:p-7">
 						<StepLabel step="03" title="Data Agent queries &amp; answers" />
 						<p className="mb-4 text-xs text-violet-300/55">
-							Your team asks in Slack. The agent plans the query against the semantic layer, investigates, and
+							Your team asks in Slack. The agent plans the query against warehouse with coherent semantic layer, investigates, and
 							returns a clear answer.
 						</p>
 

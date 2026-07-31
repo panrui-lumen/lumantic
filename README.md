@@ -26,6 +26,14 @@ Install dependencies:
 npm install
 ```
 
+`npm install` also installs a local git `pre-push` hook that runs `npm run preflight` (typecheck, lint, and production build) so pushes match the Cloudflare build gate.
+
+Before pushing manually:
+
+```bash
+npm run preflight
+```
+
 Set your local admin password in `.dev.vars` (already gitignored, copy from `.dev.vars.example` if it doesn't exist):
 
 ```

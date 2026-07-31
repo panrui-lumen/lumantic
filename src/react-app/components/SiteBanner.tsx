@@ -22,8 +22,12 @@ export function SiteBanner() {
 		let cancelled = false;
 		fetch("/api/site-banner")
 			.then((res) => (res.ok ? res.json() : null))
-			.then((data: SiteBannerPayload | null) => {
-				if (!cancelled && data) setBanner(data);
+			.then((data: unknown) => {
+				if (cancelled || !data || typeof data !== "object") return;
+				const payload = data as SiteBannerPayload;
+				if (typeof payload.enabled === "boolean" && typeof payload.message === "string") {
+					setBanner(payload);
+				}
 			})
 			.catch(() => {
 				// Banner is non-critical; fail closed (hidden).

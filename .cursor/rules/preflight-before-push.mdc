@@ -1,0 +1,10 @@
+---
+description: Run typecheck/lint/build before git push
+alwaysApply: true
+---
+
+# Pre-push checks
+
+Before `git push`, run `npm run preflight` (typecheck, lint, production build) and only push if it passes.
+
+A local git `pre-push` hook also runs this after `npm install`. Do not bypass it with `--no-verify` unless the user explicitly asks.

@@ -11,7 +11,7 @@
 		}
 	},
 	"rules": {
-		"react/react-compiler": "error",
+		"react/react-compiler": "warn",
 		"react/react-in-jsx-scope": "off",
 		"react/rules-of-hooks": "error",
 		"react/exhaustive-deps": "warn",

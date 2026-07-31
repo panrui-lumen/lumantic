@@ -6,7 +6,6 @@ import {
 	isTimeFormatPreference,
 	listTimeZones,
 	resolveDateTimePrefs,
-	type TimeFormatPreference,
 } from "../datetime";
 
 describe("datetime prefs", () => {

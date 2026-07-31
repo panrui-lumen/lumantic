@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Blocks pushes when typecheck or lint fails (same gates as Cloudflare build).
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+echo "pre-push: npm run preflight"
+npm run preflight

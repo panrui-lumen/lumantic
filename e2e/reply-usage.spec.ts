@@ -29,6 +29,12 @@ test.describe("reply usage and display currency", () => {
 		await expect(page.getByText("Time to answer")).toBeVisible();
 		await expect(page.getByText("How Lumantic answered")).toBeVisible();
 		await expect(page.getByText("Sources consulted")).toBeVisible();
+		const sqlToggle = page.getByRole("button", { name: "SQL" });
+		await expect(sqlToggle).toHaveAttribute("aria-expanded", "true");
+		await sqlToggle.click();
+		await expect(sqlToggle).toHaveAttribute("aria-expanded", "false");
+		await sqlToggle.click();
+		await expect(sqlToggle).toHaveAttribute("aria-expanded", "true");
 		await capture(page, project, "reply-usage");
 	});
 });

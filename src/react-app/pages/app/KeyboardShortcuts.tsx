@@ -24,7 +24,8 @@ export const NAV_SHORTCUTS: readonly NavShortcut[] = [
 	{ id: "team", label: "Go to Team", key: "t", path: "/app/team" },
 	{ id: "billing", label: "Go to Billing", key: "b", path: "/app/billing" },
 	{ id: "support", label: "Go to Support", key: "u", path: "/app/support" },
-	{ id: "settings", label: "Go to Settings", key: "s", path: "/app/settings", adminOnly: true },
+	{ id: "account", label: "Go to Account settings", key: "a", path: "/app/account" },
+	{ id: "settings", label: "Go to Workspace settings", key: "s", path: "/app/settings", adminOnly: true },
 ];
 
 export function isTypingTarget(target: EventTarget | null) {

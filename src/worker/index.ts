@@ -1,24 +1,58 @@
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { renderLandingPageHtml } from "./ssr";
+import adminApi from "./admin-api";
 import appApi from "./app-api";
 import { buildStatusReport, recordScheduledStatusSample } from "./status";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.route("/api/app", appApi);
+app.route("/api/admin", adminApi);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SITE_URL_PLACEHOLDER = "__SITE_URL__";
 const APP_ROOT_PLACEHOLDER = '<div id="root"></div>';
+
+// Internal Lumantic Slack workspace, #waitlist channel. Fine to keep hardcoded.
+const WAITLIST_SLACK_CHANNEL_ID = "C0BM7M5GW2E";
+
+/**
+ * Pings the internal #waitlist Slack channel when someone registers interest.
+ * Best-effort: failures are logged but never affect the registration response.
+ */
+async function notifyWaitlistSlackChannel(env: Env, email: string) {
+	if (!env.LUMANTIC_SLACK_BOT_TOKEN) return;
+
+	try {
+		const res = await fetch("https://slack.com/api/chat.postMessage", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json; charset=utf-8",
+				Authorization: `Bearer ${env.LUMANTIC_SLACK_BOT_TOKEN}`,
+			},
+			body: JSON.stringify({
+				channel: WAITLIST_SLACK_CHANNEL_ID,
+				text: `${email} was added to waitlist, you can view all in lumantic.ai/admin`,
+			}),
+		});
+		const data = await res.json<{ ok: boolean; error?: string }>();
+		if (!data.ok) {
+			console.error("Slack waitlist notification rejected", data.error);
+		}
+	} catch (err) {
+		console.error("Failed to notify Slack about new waitlist signup", err);
+	}
+}
 
 /**
  * Server-renders the landing page into the built HTML shell so crawlers (and users)
  * get fully-formed markup on first byte, then React hydrates on the client.
  */
 app.get("/", async (c) => {
-	const assetResponse = await c.env.ASSETS.fetch(c.req.raw);
-	if (!assetResponse.ok) return assetResponse;
+	const assetResponse = await fetchHtmlShell(c);
+	if (!assetResponse) {
+		return c.text("Landing page unavailable", 503);
+	}
 
 	const template = await assetResponse.text();
 	const siteUrl = new URL(c.req.url).origin;
@@ -30,6 +64,37 @@ app.get("/", async (c) => {
 
 	return c.html(html);
 });
+
+/** Resolve the Vite/Pages HTML shell for SSR injection. */
+async function fetchHtmlShell(c: { req: { url: string; raw: Request }; env: Env }) {
+	const candidates = ["/", "/index.html", "/app"];
+	for (const path of candidates) {
+		const url = new URL(path, c.req.url);
+		const res = await c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
+		if (res.ok) {
+			const clone = res.clone();
+			const text = await clone.text();
+			if (text.includes(APP_ROOT_PLACEHOLDER) || text.includes('id="root"')) {
+				return res;
+			}
+		}
+	}
+
+	// Local Vite: ASSETS subrequests often skip SPA fallback. Fetch via the public origin instead.
+	try {
+		const res = await fetch(new URL("/app", c.req.url));
+		if (res.ok) {
+			const text = await res.clone().text();
+			if (text.includes(APP_ROOT_PLACEHOLDER) || text.includes('id="root"')) {
+				return res;
+			}
+		}
+	} catch {
+		/* ignore */
+	}
+
+	return null;
+}
 
 app.get("/robots.txt", (c) => {
 	const siteUrl = new URL(c.req.url).origin;
@@ -64,23 +129,6 @@ app.get("/sitemap.xml", (c) => {
 	return c.text(body, 200, { "Content-Type": "application/xml; charset=utf-8" });
 });
 
-function timingSafeEqual(a: string, b: string): boolean {
-	const enc = new TextEncoder();
-	const aBytes = enc.encode(a);
-	const bBytes = enc.encode(b);
-	if (aBytes.length !== bBytes.length) return false;
-	let result = 0;
-	for (let i = 0; i < aBytes.length; i++) {
-		result |= aBytes[i] ^ bBytes[i];
-	}
-	return result === 0;
-}
-
-function requireAdmin(c: Context<{ Bindings: Env }>): boolean {
-	const header = c.req.header("x-admin-password") ?? "";
-	return Boolean(c.env.ADMIN_PASSWORD) && timingSafeEqual(header, c.env.ADMIN_PASSWORD);
-}
-
 app.post("/api/register", async (c) => {
 	let body: unknown;
 	try {
@@ -105,23 +153,7 @@ app.post("/api/register", async (c) => {
 		return c.json({ error: "Something went wrong. Please try again." }, 500);
 	}
 
-	return c.json({ ok: true });
-});
-
-app.post("/api/admin/login", async (c) => {
-	let body: unknown;
-	try {
-		body = await c.req.json();
-	} catch {
-		return c.json({ error: "Invalid request body" }, 400);
-	}
-
-	const password =
-		typeof (body as { password?: unknown })?.password === "string" ? (body as { password: string }).password : "";
-
-	if (!c.env.ADMIN_PASSWORD || !timingSafeEqual(password, c.env.ADMIN_PASSWORD)) {
-		return c.json({ error: "Incorrect password" }, 401);
-	}
+	c.executionCtx.waitUntil(notifyWaitlistSlackChannel(c.env, email));
 
 	return c.json({ ok: true });
 });
@@ -154,7 +186,7 @@ app.get("/api/status", async (c) => {
 				overall: "outage",
 				checkedAt: new Date().toISOString(),
 				onlineSince: null,
-				uptime: { windowDays: 30, percent: null, sampleCount: 0, okCount: 0 },
+				uptime: { windowDays: 30, percent: null, sampleCount: 0, okCount: 0, days: [] },
 				components: [
 					{ id: "api", name: "API", status: "outage", latencyMs: null, detail: "Status check failed" },
 				],
@@ -162,114 +194,6 @@ app.get("/api/status", async (c) => {
 			},
 			503,
 		);
-	}
-});
-
-app.get("/api/admin/site-banner", async (c) => {
-	if (!requireAdmin(c)) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-
-	try {
-		const row = await c.env.DB.prepare("SELECT enabled, message, updated_at FROM site_banner WHERE id = 1").first<{
-			enabled: number;
-			message: string;
-			updated_at: string;
-		}>();
-		return c.json({
-			enabled: Boolean(row?.enabled),
-			message: row?.message ?? "",
-			updatedAt: row?.updated_at ?? null,
-		});
-	} catch (err) {
-		console.error("Failed to load admin site banner", err);
-		return c.json({ error: "Something went wrong" }, 500);
-	}
-});
-
-app.put("/api/admin/site-banner", async (c) => {
-	if (!requireAdmin(c)) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-
-	let body: unknown;
-	try {
-		body = await c.req.json();
-	} catch {
-		return c.json({ error: "Invalid request body" }, 400);
-	}
-
-	const enabled = Boolean((body as { enabled?: unknown })?.enabled);
-	const message =
-		typeof (body as { message?: unknown })?.message === "string"
-			? (body as { message: string }).message.trim().slice(0, 500)
-			: "";
-
-	if (enabled && !message) {
-		return c.json({ error: "Add banner text before turning it on." }, 400);
-	}
-
-	try {
-		await c.env.DB.prepare(
-			`UPDATE site_banner
-			 SET enabled = ?, message = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-			 WHERE id = 1`,
-		)
-			.bind(enabled ? 1 : 0, message)
-			.run();
-
-		const row = await c.env.DB.prepare("SELECT enabled, message, updated_at FROM site_banner WHERE id = 1").first<{
-			enabled: number;
-			message: string;
-			updated_at: string;
-		}>();
-		return c.json({
-			enabled: Boolean(row?.enabled),
-			message: row?.message ?? "",
-			updatedAt: row?.updated_at ?? null,
-		});
-	} catch (err) {
-		console.error("Failed to update site banner", err);
-		return c.json({ error: "Something went wrong" }, 500);
-	}
-});
-
-app.get("/api/admin/registrations", async (c) => {
-	if (!requireAdmin(c)) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-
-	const url = new URL(c.req.url);
-	const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
-	const pageSize = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
-	const sort = url.searchParams.get("sort") === "oldest" ? "ASC" : "DESC";
-	const search = (url.searchParams.get("q") ?? "").trim().toLowerCase();
-
-	const offset = (page - 1) * pageSize;
-
-	try {
-		const whereClause = search ? "WHERE email LIKE ?" : "";
-		const bindings = search ? [`%${search}%`] : [];
-
-		const countResult = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM registrations ${whereClause}`)
-			.bind(...bindings)
-			.first<{ total: number }>();
-
-		const rows = await c.env.DB.prepare(
-			`SELECT id, email, created_at FROM registrations ${whereClause} ORDER BY created_at ${sort}, id ${sort} LIMIT ? OFFSET ?`,
-		)
-			.bind(...bindings, pageSize, offset)
-			.all();
-
-		return c.json({
-			rows: rows.results,
-			total: countResult?.total ?? 0,
-			page,
-			pageSize,
-		});
-	} catch (err) {
-		console.error("Failed to list registrations", err);
-		return c.json({ error: "Something went wrong" }, 500);
 	}
 });
 

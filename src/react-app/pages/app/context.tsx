@@ -19,7 +19,7 @@ type AppAuthContextValue = {
 	loginWithSlack: () => Promise<void>;
 	logout: () => void;
 	request: <T>(path: string, init?: RequestInit) => Promise<T>;
-	updateProfile: (fields: { name: string; role: string; avatarUrl?: string | null }) => Promise<void>;
+	updateProfile: (fields: Partial<AppUser> & { name?: string; role?: string; avatarUrl?: string | null }) => Promise<void>;
 	connectSlackIdentity: () => Promise<void>;
 	disconnectSlackIdentity: () => Promise<void>;
 	deleteAccount: (confirmation: string) => Promise<void>;
@@ -105,7 +105,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const updateProfile = useCallback(
-		async (fields: { name: string; role: string; avatarUrl?: string | null }) => {
+		async (fields: Partial<AppUser> & { name?: string; role?: string; avatarUrl?: string | null }) => {
 			const data = await request<{ user: AppUser }>("/profile", { method: "PUT", body: JSON.stringify(fields) });
 			setUser(data.user);
 		},

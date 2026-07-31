@@ -1,18 +1,53 @@
 -- Seeds realistic demo data into the workspace tables (team, billing,
--- support) that back the Team / Billing / Support pages in /app. This is
--- intentionally separate from schema migrations so the demo data can be
--- reset independently of the schema.
+-- support) that back the Team / Billing / Support pages in /app, plus the
+-- multi-workspace catalog used by /admin. This is intentionally separate
+-- from schema migrations so the demo data can be reset independently of
+-- the schema.
 --
 -- Safe to re-run: it clears these tables first, then re-inserts the same
 -- fixtures. Run locally with `npm run db:seed`, or against the deployed
 -- database with `npm run db:seed:remote`.
 
 DELETE FROM team_members;
-INSERT INTO team_members (name, email, role, status, is_you, last_active_at, created_at) VALUES
-	('Avery Chen', 'avery@beacon.com', 'Owner', 'active', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-190 days')),
-	('Priya Nair', 'priya@beacon.com', 'Admin', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-160 days')),
-	('Sam Rivera', 'sam@beacon.com', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')),
-	('Jordan Lee', 'jordan@beacon.com', 'Member', 'invited', 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 days'));
+DELETE FROM workspaces;
+
+INSERT INTO workspaces (
+	id, name, slug, plan_id, billing_status, overdue_since, renews_at,
+	seat_limit, mrr_cents, primary_contact_email, notes, is_live, created_at, updated_at
+) VALUES
+	(1, 'Beacon', 'beacon', 'scale', 'active', NULL, '2026-08-30', 10, 49900, 'avery@beacon.com', 'Live demo workspace that powers /app.', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-190 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+	(2, 'Northstar Analytics', 'northstar', 'enterprise', 'active', NULL, '2026-09-12', 50, 240000, 'maya@northstar.io', 'Enterprise analytics customer.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-420 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days')),
+	(3, 'Copperleaf Labs', 'copperleaf', 'starter', 'trial', NULL, '2026-08-08', 3, 0, 'theo@copperleaf.lab', 'Product trial, converting to Starter.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-12 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days')),
+	(4, 'Rivermark Health', 'rivermark', 'scale', 'overdue', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-18 days'), '2026-07-01', 10, 49900, 'finance@rivermark.health', 'Payment failed on July renew. Follow up with finance.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-280 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-18 days')),
+	(5, 'Quill & Co', 'quill', 'starter', 'active', NULL, '2026-08-21', 5, 9900, 'ops@quill.co', 'Small content team.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-95 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 days')),
+	(6, 'Orbit Freight', 'orbit-freight', 'enterprise', 'overdue', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-41 days'), '2026-06-15', 100, 0, 'billing@orbitfreight.com', 'Custom enterprise invoice overdue. Escalate to AE.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-510 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-41 days')),
+	(7, 'Lumen Retail', 'lumen-retail', 'scale', 'active', NULL, '2026-08-05', 15, 49900, 'data@lumenretail.com', 'Retail analytics rollout.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-150 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 days')),
+	(8, 'Harbor Books', 'harbor-books', 'starter', 'canceled', NULL, NULL, 3, 0, 'hello@harborbooks.com', 'Canceled after trial; keep for win-back.', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-200 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 days'));
+
+INSERT INTO team_members (workspace_id, name, email, role, status, is_you, last_active_at, created_at) VALUES
+	(1, 'Avery Chen', 'avery@beacon.com', 'Owner', 'active', 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-190 days')),
+	(1, 'Priya Nair', 'priya@beacon.com', 'Admin', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-160 days')),
+	(1, 'Sam Rivera', 'sam@beacon.com', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')),
+	(1, 'Jordan Lee', 'jordan@beacon.com', 'Member', 'invited', 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 days')),
+	(1, 'Casey Morgan', 'casey@beacon.com', 'Member', 'disabled', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-14 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-80 days')),
+	(2, 'Maya Okonkwo', 'maya@northstar.io', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-4 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-400 days')),
+	(2, 'Chris Lang', 'chris@northstar.io', 'Admin', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-300 days')),
+	(2, 'Elena Park', 'elena@northstar.io', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-120 days')),
+	(2, 'Noah Berg', 'noah@northstar.io', 'Member', 'invited', 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days')),
+	(3, 'Theo Marquez', 'theo@copperleaf.lab', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-12 days')),
+	(3, 'Ivy Chen', 'ivy@copperleaf.lab', 'Member', 'invited', 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 days')),
+	(4, 'Dana Whitfield', 'dana@rivermark.health', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-250 days')),
+	(4, 'Omar Hassan', 'omar@rivermark.health', 'Admin', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-8 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-200 days')),
+	(4, 'Finance Desk', 'finance@rivermark.health', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-18 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-180 days')),
+	(5, 'Riley Quinn', 'ops@quill.co', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-90 days')),
+	(5, 'Pat Soto', 'pat@quill.co', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-70 days')),
+	(6, 'Sasha Voss', 'sasha@orbitfreight.com', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-12 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-500 days')),
+	(6, 'Kenji Mori', 'kenji@orbitfreight.com', 'Admin', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-20 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-400 days')),
+	(6, 'Billing', 'billing@orbitfreight.com', 'Member', 'disabled', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-41 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-350 days')),
+	(7, 'Ada Moreau', 'data@lumenretail.com', 'Owner', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-5 hours'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-140 days')),
+	(7, 'Ben Ortiz', 'ben@lumenretail.com', 'Member', 'active', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-100 days')),
+	(7, 'Cara Ng', 'cara@lumenretail.com', 'Member', 'invited', 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-4 days')),
+	(8, 'Jules Hart', 'hello@harborbooks.com', 'Owner', 'disabled', 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-60 days'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-190 days'));
 
 UPDATE billing_plan
 SET plan_id = 'scale', renews_at = '2026-08-30', card_brand = 'Visa', card_last4 = '4242', card_exp = '08/28', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -36,10 +71,12 @@ INSERT INTO billing_invoices (invoice_date, description, amount_cents, status) V
 UPDATE usage_counters SET slack_posts = 86, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = 1;
 
 DELETE FROM support_tickets;
-INSERT INTO support_tickets (id, subject, message, status, created_at) VALUES
-	(1021, 'How do I change my workspace name?', 'Is there a way to rename our Lumantic workspace from the settings page?', 'Resolved', '2026-07-12T09:00:00.000Z'),
-	(1038, 'Can we get a second Slack channel for alerts?', 'We would like proposed memories to post separately from the daily digest.', 'Open', '2026-07-24T09:00:00.000Z'),
-	(1042, 'Slack digest posted twice on Monday', 'We received the daily digest message twice in #data-team on Monday morning.', 'Open', '2026-07-28T09:00:00.000Z');
+INSERT INTO support_tickets (id, subject, message, status, created_at, owner_employee_id) VALUES
+	(1021, 'How do I change my workspace name?', 'Is there a way to rename our Lumantic workspace from the settings page?', 'Resolved', '2026-07-12T09:00:00.000Z', (SELECT id FROM admin_employees WHERE name = 'Panrui')),
+	(1038, 'Can we get a second Slack channel for alerts?', 'We would like proposed memories to post separately from the daily digest.', 'Open', '2026-07-24T09:00:00.000Z', (SELECT id FROM admin_employees WHERE name = 'Alex')),
+	(1042, 'Slack digest posted twice on Monday', 'We received the daily digest message twice in #data-team on Monday morning.', 'Open', '2026-07-28T09:00:00.000Z', NULL),
+	(1055, 'Rivermark invoice payment failed', 'Card on file declined for Rivermark Health Scale renew. Need a new payment link.', 'Open', '2026-07-14T15:20:00.000Z', (SELECT id FROM admin_employees WHERE name = 'Sharuk')),
+	(1061, 'Orbit Freight custom SSO setup', 'Enterprise customer wants Okta SSO before they will clear overdue invoices.', 'Open', '2026-07-20T11:05:00.000Z', (SELECT id FROM admin_employees WHERE name = 'Sé'));
 
 UPDATE user_profile SET company = 'Beacon', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = 1;
 

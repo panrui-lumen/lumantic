@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, ChevronDown, InboxIcon, PencilIcon, SpinnerIcon } from "../../components/Icons";
+import { CheckIcon, InboxIcon, PencilIcon, SpinnerIcon } from "../../components/Icons";
 import { useAppAuth } from "./context";
 import {
 	CategoryPill,
@@ -8,7 +8,7 @@ import {
 	EmptyState,
 	ErrorBanner,
 	ListPagination,
-	selectClass,
+	Select,
 	textareaClass,
 } from "./ui";
 import { MEMORY_CATEGORIES, type ProposedMemory } from "./types";
@@ -40,16 +40,13 @@ function ProposedCard({
 			<div className="rounded-2xl border border-violet-400/40 bg-white/[0.04] p-4">
 				<textarea value={content} onChange={(e) => setContent(e.target.value)} autoFocus className={textareaClass} />
 				<div className="mt-3 flex items-center justify-between gap-3">
-					<div className="relative">
-						<select value={category} onChange={(e) => setCategory(e.target.value)} className={selectClass}>
-							{MEMORY_CATEGORIES.map((cat) => (
-								<option key={cat} value={cat} className="bg-ink">
-									{cat}
-								</option>
-							))}
-						</select>
-						<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-					</div>
+					<Select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+						{MEMORY_CATEGORIES.map((cat) => (
+							<option key={cat} value={cat} className="bg-ink">
+								{cat}
+							</option>
+						))}
+					</Select>
 					<div className="flex items-center gap-2">
 						<button
 							onClick={() => {

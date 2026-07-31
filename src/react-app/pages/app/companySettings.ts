@@ -5,6 +5,7 @@ import {
 	type ResolvedDateTimePrefs,
 	type TimeFormatPreference,
 } from "../../../shared/datetime";
+import { DEFAULT_UI_LOCALE_PREFERENCE, type UiLocalePreference } from "../../../shared/locale";
 import type { CompanySettings } from "./types";
 import { useQuery } from "@tanstack/react-query";
 import { useAppAuth } from "./context";
@@ -14,6 +15,7 @@ export function normalizeCompanySettings(company: Partial<CompanySettings> | nul
 		displayCurrency: company?.displayCurrency ?? "USD",
 		timeFormat: company?.timeFormat ?? DEFAULT_COMPANY_DATETIME.timeFormat,
 		timezone: company?.timezone ?? DEFAULT_COMPANY_DATETIME.timezone,
+		uiLocale: (company?.uiLocale ?? DEFAULT_UI_LOCALE_PREFERENCE) as UiLocalePreference,
 		companyName: company?.companyName?.trim() || "Beacon",
 		inviteEmailDomains: Array.isArray(company?.inviteEmailDomains)
 			? company.inviteEmailDomains.filter((d): d is string => typeof d === "string" && d.length > 0)
@@ -36,12 +38,20 @@ export function useCompanySettings() {
 	});
 }
 
+/** Prefer per-user account prefs; fall back to company defaults. */
 export function useResolvedDateTimePrefs(): ResolvedDateTimePrefs {
+	const { user } = useAppAuth();
 	const { data } = useCompanySettings();
 	return resolveDateTimePrefs({
-		timeFormat: (data?.timeFormat ?? "auto") as TimeFormatPreference,
-		timezone: data?.timezone ?? "auto",
+		timeFormat: (user?.timeFormat ?? data?.timeFormat ?? "auto") as TimeFormatPreference,
+		timezone: user?.timezone ?? data?.timezone ?? "auto",
 	});
+}
+
+export function useDisplayCurrency(): string {
+	const { user } = useAppAuth();
+	const { data } = useCompanySettings();
+	return user?.displayCurrency ?? data?.displayCurrency ?? "USD";
 }
 
 export function formatWithPrefs(

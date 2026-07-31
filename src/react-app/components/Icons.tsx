@@ -102,6 +102,15 @@ export function LogOutIcon({ className = "size-4" }: { className?: string }) {
 	);
 }
 
+export function LogInIcon({ className = "size-4" }: { className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth={1.8}>
+			<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" strokeLinejoin="round" />
+			<path d="M10 17l5-5-5-5M15 12H3" strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	);
+}
+
 export function PlusIcon({ className = "size-4" }: { className?: string }) {
 	return (
 		<svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth={2}>
@@ -439,6 +448,16 @@ export function MoreHorizontalIcon({ className = "size-4" }: { className?: strin
 			<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
 			<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
 			<circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+		</svg>
+	);
+}
+
+export function CalendarIcon({ className = "size-4" }: { className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth={1.8}>
+			<rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+			<path d="M3.5 9.5h17" strokeLinecap="round" />
+			<path d="M8 3.5v3M16 3.5v3" strokeLinecap="round" />
 		</svg>
 	);
 }

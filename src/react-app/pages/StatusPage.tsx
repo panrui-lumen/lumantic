@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import logo from "../assets/lumantic-logo.png";
 import { AlertIcon, CheckIcon, SpinnerIcon } from "../components/Icons";
+import { UptimeBar, type UptimeDay } from "../components/UptimeBar";
 
 type ComponentStatus = "operational" | "degraded" | "outage";
 
@@ -21,6 +22,7 @@ type StatusReport = {
 		percent: number | null;
 		sampleCount: number;
 		okCount: number;
+		days: UptimeDay[];
 	};
 	components: StatusComponent[];
 	notice: string | null;
@@ -104,6 +106,8 @@ export function StatusPage() {
 	const overall = report?.overall ?? (error ? "outage" : "operational");
 	const overallCopy = STATUS_COPY[overall];
 	const online = formatOnlineDays(report?.onlineSince ?? null);
+	const uptimeDays = report?.uptime.days ?? [];
+	const windowDays = report?.uptime.windowDays ?? 30;
 
 	return (
 		<div className="relative flex min-h-screen flex-col overflow-hidden bg-void text-violet-50">
@@ -116,12 +120,6 @@ export function StatusPage() {
 				<a href="/" className="flex cursor-pointer items-center gap-2.5">
 					<img src={logo} alt="Lumantic" className="h-7 w-7 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
 					<span className="font-display text-lg font-semibold tracking-tight text-violet-50">Lumantic</span>
-				</a>
-				<a
-					href="/app"
-					className="cursor-pointer rounded-lg border border-violet-500/25 px-3 py-1.5 text-sm font-medium text-violet-200 transition hover:border-violet-400/50 hover:text-violet-50"
-				>
-					Open app
 				</a>
 			</header>
 
@@ -178,6 +176,16 @@ export function StatusPage() {
 						<p className="mt-2 font-display text-2xl font-semibold text-violet-50">5 min</p>
 						<p className="mt-1 text-xs text-violet-400/45">Automated health checks</p>
 					</div>
+				</section>
+
+				<section className="mt-8 rounded-2xl border border-violet-500/15 bg-white/[0.02] px-4 py-4 sm:px-5">
+					<div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+						<h2 className="text-sm font-semibold text-violet-100">Uptime · last {windowDays} days</h2>
+						{report?.uptime.percent != null ? (
+							<p className="text-xs text-violet-400/50">{report.uptime.percent.toFixed(2)}% uptime</p>
+						) : null}
+					</div>
+					<UptimeBar days={uptimeDays} windowDays={windowDays} />
 				</section>
 
 				<section className="mt-8 overflow-hidden rounded-2xl border border-violet-500/15 bg-white/[0.02]">

@@ -1,30 +1,13 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ChevronDown, ExternalLinkIcon, LifeBuoyIcon, SparkleIcon, SpinnerIcon } from "../../components/Icons";
+import { useT } from "./i18n";
 import { PageHeader, Pill, inputClass, textareaClass } from "./ui";
 
-const FAQS = [
-	{
-		q: "How does Lumantic decide what to propose as a memory?",
-		a: "Lumantic watches chats and connected data sources for facts, definitions, and gotchas that come up more than once, then drops them in Proposed Memories for your team to confirm before they're treated as ground truth.",
-	},
-	{
-		q: "What happens when I deny a proposed memory?",
-		a: "It's removed immediately and never saved. Denying doesn't stop Lumantic from proposing something similar again later if it keeps seeing evidence for it.",
-	},
-	{
-		q: "Can I disconnect Slack without losing my memories?",
-		a: "Yes. Disconnecting Slack only stops future posts to your workspace. Nothing in your Memories or Proposed Memories library is affected.",
-	},
-	{
-		q: "Can I export my memories?",
-		a: "Not yet from the UI, but it's on our roadmap. In the meantime, reach out to support and we can send you a CSV export.",
-	},
-];
-
-const TICKETS: { id: number; subject: string; status: "Open" | "Resolved"; date: string }[] = [
-	{ id: 1042, subject: "Slack digest posted twice on Monday", status: "Open", date: "Jul 28, 2026" },
-	{ id: 1038, subject: "Can we get a second Slack channel for alerts?", status: "Open", date: "Jul 24, 2026" },
-	{ id: 1021, subject: "How do I change my workspace name?", status: "Resolved", date: "Jul 12, 2026" },
+const FAQ_KEYS = ["faq1", "faq2", "faq3", "faq4"] as const;
+const TICKET_KEYS = [
+	{ id: 1042, key: "ticket1042", status: "Open" as const },
+	{ id: 1038, key: "ticket1038", status: "Open" as const },
+	{ id: 1021, key: "ticket1021", status: "Resolved" as const },
 ];
 
 function FaqItem({ q, a }: { q: string; a: string }) {
@@ -32,8 +15,9 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 	return (
 		<div className="border-b border-violet-500/10 last:border-0">
 			<button
+				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center justify-between gap-4 py-3.5 text-left"
+				className="flex w-full cursor-pointer items-center justify-between gap-4 py-3.5 text-left"
 			>
 				<span className="text-sm font-medium text-violet-100">{q}</span>
 				<ChevronDown className={`size-4 shrink-0 text-violet-400/50 transition ${open ? "rotate-180" : ""}`} />
@@ -44,12 +28,13 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 export function SupportPage() {
+	const t = useT();
 	const [subject, setSubject] = useState("");
 	const [message, setMessage] = useState("");
 	const [sending, setSending] = useState(false);
 	const [sent, setSent] = useState(false);
 
-	function handleSubmit(e: React.FormEvent) {
+	function handleSubmit(e: FormEvent) {
 		e.preventDefault();
 		if (!subject.trim() || !message.trim()) return;
 		setSending(true);
@@ -61,22 +46,26 @@ export function SupportPage() {
 		}, 700);
 	}
 
+	const quickLinks = [
+		{ label: t("support.docs"), desc: t("support.docsDesc"), href: null as string | null },
+		{ label: t("support.status"), desc: t("support.statusDesc"), href: "/status" },
+		{ label: t("support.community"), desc: t("support.communityDesc"), href: null },
+	];
+
 	return (
 		<div className="h-full overflow-y-auto">
-			<PageHeader title="Support" description="Get help from the Lumantic team." />
+			<PageHeader title={t("support.title")} description={t("support.description")} />
 
 			<div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
 				<div className="grid gap-3 sm:grid-cols-3">
-					{[
-						{ label: "Documentation", desc: "Guides & API reference" },
-						{ label: "Status page", desc: "Uptime & incidents" },
-						{ label: "Community", desc: "Ask other data teams" },
-					].map((link) => (
+					{quickLinks.map((link) => (
 						<a
 							key={link.label}
-							href="#"
-							onClick={(e) => e.preventDefault()}
-							className="flex items-center justify-between gap-2 rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4 transition hover:border-violet-400/30 hover:bg-white/[0.04]"
+							href={link.href ?? "#"}
+							{...(link.href
+								? { target: "_blank", rel: "noopener noreferrer" }
+								: { onClick: (e: { preventDefault: () => void }) => e.preventDefault() })}
+							className="flex cursor-pointer items-center justify-between gap-2 rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4 transition hover:border-violet-400/30 hover:bg-white/[0.04]"
 						>
 							<div>
 								<p className="text-sm font-medium text-violet-100">{link.label}</p>
@@ -88,20 +77,23 @@ export function SupportPage() {
 				</div>
 
 				<section>
-					<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">Contact us</h2>
+					<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">
+						{t("support.contactUs")}
+					</h2>
 					<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
 						{sent ? (
 							<div className="flex flex-col items-center gap-2 py-6 text-center">
 								<span className="flex size-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
 									<SparkleIcon className="size-5" />
 								</span>
-								<p className="font-medium text-violet-100">Message sent</p>
-								<p className="max-w-xs text-sm text-violet-300/60">We'll get back to you within one business day.</p>
+								<p className="font-medium text-violet-100">{t("support.messageSent")}</p>
+								<p className="max-w-xs text-sm text-violet-300/60">{t("support.messageSentBody")}</p>
 								<button
+									type="button"
 									onClick={() => setSent(false)}
-									className="mt-2 text-sm font-medium text-violet-300 hover:text-violet-100"
+									className="mt-2 cursor-pointer text-sm font-medium text-violet-300 hover:text-violet-100"
 								>
-									Send another message
+									{t("support.sendAnother")}
 								</button>
 							</div>
 						) : (
@@ -109,23 +101,23 @@ export function SupportPage() {
 								<input
 									value={subject}
 									onChange={(e) => setSubject(e.target.value)}
-									placeholder="Subject"
+									placeholder={t("support.subject")}
 									className={inputClass}
 								/>
 								<textarea
 									value={message}
 									onChange={(e) => setMessage(e.target.value)}
-									placeholder="How can we help?"
+									placeholder={t("support.messagePlaceholder")}
 									className={textareaClass}
 								/>
 								<div className="flex items-center justify-end">
 									<button
 										type="submit"
 										disabled={sending || !subject.trim() || !message.trim()}
-										className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+										className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
 									>
 										{sending && <SpinnerIcon className="size-3.5" />}
-										Send message
+										{t("support.sendMessage")}
 									</button>
 								</div>
 							</form>
@@ -136,31 +128,35 @@ export function SupportPage() {
 				<section>
 					<h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">
 						<LifeBuoyIcon className="size-3.5" />
-						Recent tickets
+						{t("support.recentTickets")}
 					</h2>
 					<div className="overflow-hidden rounded-2xl border border-violet-500/15 bg-white/[0.02]">
-						{TICKETS.map((t) => (
+						{TICKET_KEYS.map((ticket) => (
 							<div
-								key={t.id}
+								key={ticket.id}
 								className="flex items-center justify-between gap-4 border-b border-violet-500/10 px-5 py-3.5 last:border-0"
 							>
 								<div className="min-w-0">
-									<p className="truncate text-sm text-violet-100">{t.subject}</p>
+									<p className="truncate text-sm text-violet-100">{t(`support.${ticket.key}`)}</p>
 									<p className="text-xs text-violet-400/50">
-										#{t.id} · {t.date}
+										#{ticket.id} · {t(`support.${ticket.key}Date`)}
 									</p>
 								</div>
-								<Pill tone={t.status === "Open" ? "amber" : "emerald"}>{t.status}</Pill>
+								<Pill tone={ticket.status === "Open" ? "amber" : "emerald"}>
+									{ticket.status === "Open" ? t("support.statusOpen") : t("support.statusResolved")}
+								</Pill>
 							</div>
 						))}
 					</div>
 				</section>
 
 				<section>
-					<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">Frequently asked</h2>
+					<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">
+						{t("support.faqTitle")}
+					</h2>
 					<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] px-5">
-						{FAQS.map((f) => (
-							<FaqItem key={f.q} q={f.q} a={f.a} />
+						{FAQ_KEYS.map((key) => (
+							<FaqItem key={key} q={t(`support.${key}q`)} a={t(`support.${key}a`)} />
 						))}
 					</div>
 				</section>

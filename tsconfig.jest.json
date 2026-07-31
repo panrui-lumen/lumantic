@@ -8,5 +8,11 @@
 		"noEmit": true,
 		"isolatedModules": true
 	},
-	"include": ["src/shared/**/*.ts", "src/**/__tests__/**/*.ts"]
+	"include": [
+		"src/shared/**/*.ts",
+		"src/react-app/appVersion.ts",
+		"src/react-app/chatComposerDraft.ts",
+		"src/**/__tests__/**/*.ts",
+		"scripts/vite-app-version-plugin.ts"
+	]
 }

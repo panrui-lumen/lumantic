@@ -6,6 +6,13 @@ export type StatusComponent = {
 	detail: string | null;
 };
 
+export type UptimeDay = {
+	date: string;
+	status: "operational" | "degraded" | "outage" | "none";
+	sampleCount: number;
+	okCount: number;
+};
+
 export type StatusReport = {
 	overall: "operational" | "degraded" | "outage";
 	checkedAt: string;
@@ -15,10 +22,59 @@ export type StatusReport = {
 		percent: number | null;
 		sampleCount: number;
 		okCount: number;
+		days: UptimeDay[];
 	};
 	components: StatusComponent[];
 	notice: string | null;
 };
+
+function utcDayKey(d: Date): string {
+	return d.toISOString().slice(0, 10);
+}
+
+function buildEmptyUptimeDays(windowDays: number): UptimeDay[] {
+	const days: UptimeDay[] = [];
+	const today = new Date();
+	today.setUTCHours(0, 0, 0, 0);
+	for (let i = windowDays - 1; i >= 0; i--) {
+		const day = new Date(today);
+		day.setUTCDate(today.getUTCDate() - i);
+		days.push({ date: utcDayKey(day), status: "none", sampleCount: 0, okCount: 0 });
+	}
+	return days;
+}
+
+async function loadUptimeDays(db: D1Database, windowDays: number): Promise<UptimeDay[]> {
+	const days = buildEmptyUptimeDays(windowDays);
+	const byDate = new Map(days.map((d) => [d.date, d]));
+
+	const rows = await db
+		.prepare(
+			`SELECT substr(checked_at, 1, 10) AS day,
+			        COUNT(*) AS total,
+			        COALESCE(SUM(ok), 0) AS ok_count
+			 FROM status_samples
+			 WHERE checked_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
+			 GROUP BY substr(checked_at, 1, 10)`,
+		)
+		.bind(`-${windowDays} days`)
+		.all<{ day: string; total: number; ok_count: number }>();
+
+	for (const row of rows.results ?? []) {
+		const entry = byDate.get(row.day);
+		if (!entry) continue;
+		const sampleCount = row.total ?? 0;
+		const okCount = row.ok_count ?? 0;
+		entry.sampleCount = sampleCount;
+		entry.okCount = okCount;
+		if (sampleCount <= 0) entry.status = "none";
+		else if (okCount === sampleCount) entry.status = "operational";
+		else if (okCount === 0) entry.status = "outage";
+		else entry.status = "degraded";
+	}
+
+	return days;
+}
 
 async function probeDatabase(db: D1Database): Promise<{ ok: boolean; latencyMs: number; detail: string | null }> {
 	const started = Date.now();
@@ -86,15 +142,15 @@ export async function buildStatusReport(db: D1Database, opts?: { record?: boolea
 
 	let notice: string | null = null;
 	try {
-		const banner = await db.prepare("SELECT enabled, message FROM site_banner WHERE id = 1").first<{
+		const row = await db.prepare("SELECT enabled, message FROM status_notice WHERE id = 1").first<{
 			enabled: number;
 			message: string;
 		}>();
-		if (banner?.enabled && banner.message.trim()) {
-			notice = banner.message.trim();
+		if (row?.enabled && row.message.trim()) {
+			notice = row.message.trim();
 		}
 	} catch {
-		// site_banner may be missing on older DBs; ignore
+		// status_notice may be missing on older DBs; ignore
 	}
 
 	const hasOutage = components.some((c) => c.status === "outage");
@@ -110,6 +166,7 @@ export async function buildStatusReport(db: D1Database, opts?: { record?: boolea
 	let sampleCount = 0;
 	let okCount = 0;
 	const windowDays = 30;
+	let days = buildEmptyUptimeDays(windowDays);
 
 	try {
 		const meta = await db.prepare("SELECT online_since FROM service_meta WHERE id = 1").first<{
@@ -127,6 +184,7 @@ export async function buildStatusReport(db: D1Database, opts?: { record?: boolea
 			.first<{ total: number; ok_count: number }>();
 		sampleCount = stats?.total ?? 0;
 		okCount = stats?.ok_count ?? 0;
+		days = await loadUptimeDays(db, windowDays);
 	} catch (err) {
 		console.error("Failed to load uptime stats", err);
 	}
@@ -142,6 +200,7 @@ export async function buildStatusReport(db: D1Database, opts?: { record?: boolea
 			percent,
 			sampleCount,
 			okCount,
+			days,
 		},
 		components,
 		notice,

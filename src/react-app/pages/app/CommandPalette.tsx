@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
+	AlertIcon,
 	BrainIcon,
 	ChatIcon,
 	CreditCardIcon,
@@ -11,12 +14,13 @@ import {
 	PencilIcon,
 	PlusIcon,
 	SearchIcon,
+	SparkleIcon,
 	UserIcon,
 	UsersIcon,
 } from "../../components/Icons";
 import { useAppAuth } from "./context";
 import { FEATURE_FLAG_DEFS, featureFlagsEnabled, toggleFeatureFlag, useFeatureFlagSnapshot } from "./featureFlags";
-import type { Conversation } from "./types";
+import type { AppUser, Conversation } from "./types";
 import type { AppRoute } from "./routes";
 
 export const OPEN_CMDK_EVENT = "lumantic-open-cmdk";
@@ -62,8 +66,14 @@ const NAV_ITEMS: {
 	},
 	{ route: "support", label: "Go to Support", keywords: "help tickets", icon: (c) => <LifeBuoyIcon className={c} /> },
 	{
+		route: "account",
+		label: "Go to Account settings",
+		keywords: "profile language currency timezone email notifications preferences",
+		icon: (c) => <UserIcon className={c} />,
+	},
+	{
 		route: "settings",
-		label: "Go to Settings",
+		label: "Go to Workspace settings",
 		keywords: "integrations slack github gitlab datadog sentry segment mixpanel incident launchdarkly",
 		icon: (c) => <GearIcon className={c} />,
 		adminOnly: true,
@@ -93,7 +103,8 @@ export function CommandPalette({
 	onOpenShortcuts?: () => void;
 	canAccessSettings?: boolean;
 }) {
-	const { request } = useAppAuth();
+	const { request, applyUser } = useAppAuth();
+	const queryClient = useQueryClient();
 	const [query, setQuery] = useState("");
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [personal, setPersonal] = useState<Conversation[]>([]);
@@ -104,6 +115,25 @@ export function CommandPalette({
 	const showDevSection = featureFlagsEnabled();
 	const [wasOpen, setWasOpen] = useState(false);
 	const [queryForIndex, setQueryForIndex] = useState(query);
+
+	const runDevAction = useCallback(
+		async (body: Record<string, unknown>, successMessage: string, opts?: { invalidateBilling?: boolean }) => {
+			try {
+				const data = await request<{ ok?: boolean; user?: AppUser; error?: string }>("/dev", {
+					method: "POST",
+					body: JSON.stringify(body),
+				});
+				if (data.user) applyUser(data.user);
+				if (opts?.invalidateBilling) {
+					await queryClient.invalidateQueries({ queryKey: ["billing-over-plan"] });
+				}
+				toast.success(successMessage);
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Dev action failed");
+			}
+		},
+		[applyUser, queryClient, request],
+	);
 
 	if (open && !wasOpen) {
 		setWasOpen(true);
@@ -156,9 +186,9 @@ export function CommandPalette({
 			},
 			{
 				id: "nav-edit-profile",
-				label: "Edit profile",
+				label: "Account settings",
 				group: "Actions",
-				keywords: "name role account",
+				keywords: "edit profile name role account language currency email",
 				icon: <PencilIcon className="size-4" />,
 				run: closeAnd(onOpenEditProfile),
 			},
@@ -207,7 +237,9 @@ export function CommandPalette({
 											? "/app/billing"
 											: item.route === "support"
 												? "/app/support"
-												: "/app/settings";
+												: item.route === "account"
+													? "/app/account"
+													: "/app/settings";
 					onNavigate(path);
 				}),
 			})),
@@ -230,19 +262,116 @@ export function CommandPalette({
 				run: closeAnd(() => onNavigate(`/app?c=${c.id}&scope=global`)),
 			})),
 			...(showDevSection
-				? FEATURE_FLAG_DEFS.map((flag) => {
-						const stored = flagSnapshot[flag.key];
-						const on = typeof stored === "boolean" ? stored : flag.defaultValue;
-						return {
-							id: `flag-${flag.key}`,
-							label: flag.label,
+				? [
+						{
+							id: "dev-role-admin",
+							label: "Make current user Admin",
 							group: "Dev only",
-							hint: on ? "On" : "Off",
-							keywords: `dev flag feature toggle ${flag.description} ${flag.key}`,
-							icon: <FlagIcon className="size-4" />,
-							run: () => toggleFeatureFlag(flag.key),
-						};
-					})
+							keywords: "dev tools role workspace admin settings permission",
+							icon: <UsersIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setWorkspaceRole", role: "Admin" },
+									"You are now a workspace Admin",
+								);
+							}),
+						},
+						{
+							id: "dev-role-owner",
+							label: "Make current user Owner",
+							group: "Dev only",
+							keywords: "dev tools role workspace owner permission",
+							icon: <UsersIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setWorkspaceRole", role: "Owner" },
+									"You are now the workspace Owner",
+								);
+							}),
+						},
+						{
+							id: "dev-role-member",
+							label: "Make current user Member",
+							group: "Dev only",
+							keywords: "dev tools role workspace member permission demote",
+							icon: <UserIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setWorkspaceRole", role: "Member" },
+									"You are now a workspace Member",
+								);
+							}),
+						},
+						{
+							id: "dev-billing-overdue",
+							label: "Simulate bill not paid",
+							group: "Dev only",
+							keywords: "dev tools billing overdue unpaid invoice payment failed",
+							icon: <AlertIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setBillingStatus", status: "overdue" },
+									"Billing marked overdue",
+									{ invalidateBilling: true },
+								);
+							}),
+						},
+						{
+							id: "dev-billing-active",
+							label: "Mark bill as paid",
+							group: "Dev only",
+							keywords: "dev tools billing active paid clear overdue",
+							icon: <CreditCardIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setBillingStatus", status: "active" },
+									"Billing marked active",
+									{ invalidateBilling: true },
+								);
+							}),
+						},
+						{
+							id: "dev-plan-starter",
+							label: "Switch plan to Starter",
+							group: "Dev only",
+							keywords: "dev tools plan starter quota overage",
+							icon: <SparkleIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setPlan", planId: "starter" },
+									"Plan set to Starter",
+									{ invalidateBilling: true },
+								);
+							}),
+						},
+						{
+							id: "dev-plan-scale",
+							label: "Switch plan to Scale",
+							group: "Dev only",
+							keywords: "dev tools plan scale",
+							icon: <SparkleIcon className="size-4" />,
+							run: closeAnd(() => {
+								void runDevAction(
+									{ action: "setPlan", planId: "scale" },
+									"Plan set to Scale",
+									{ invalidateBilling: true },
+								);
+							}),
+						},
+						...FEATURE_FLAG_DEFS.map((flag) => {
+							const stored = flagSnapshot[flag.key];
+							const on = typeof stored === "boolean" ? stored : flag.defaultValue;
+							return {
+								id: `flag-${flag.key}`,
+								label: flag.label,
+								group: "Dev only",
+								hint: on ? "On" : "Off",
+								keywords: `dev flag feature toggle ${flag.description} ${flag.key}`,
+								icon: <FlagIcon className="size-4" />,
+								run: () => toggleFeatureFlag(flag.key),
+							};
+						}),
+					]
 				: []),
 		];
 
@@ -260,6 +389,7 @@ export function CommandPalette({
 		showDevSection,
 		flagSnapshot,
 		canAccessSettings,
+		runDevAction,
 	]);
 
 	if (query !== queryForIndex) {

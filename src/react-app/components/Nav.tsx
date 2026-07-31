@@ -18,9 +18,9 @@ export function Nav({ onRegisterClick }: { onRegisterClick: () => void }) {
 				scrolled ? "border-b border-violet-500/15 bg-void/80 backdrop-blur-md" : "border-b border-transparent"
 			}`}
 		>
-			<nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-				<a href="#top" className="flex items-center gap-2.5">
-					<img src={logo} alt="Lumantic" className="h-7 w-7 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
+			<nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
+				<a href="#top" className="flex min-w-0 items-center gap-2.5">
+					<img src={logo} alt="Lumantic" className="h-7 w-7 shrink-0 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
 					<span className="font-display text-lg font-semibold tracking-tight text-violet-50">Lumantic</span>
 				</a>
 
@@ -39,7 +39,7 @@ export function Nav({ onRegisterClick }: { onRegisterClick: () => void }) {
 				<GlowCta>
 					<button
 						onClick={onRegisterClick}
-						className="cursor-pointer rounded-full bg-ink px-4 py-2 text-sm font-medium text-violet-100 transition hover:bg-violet-950 hover:text-white"
+						className="cursor-pointer rounded-full bg-ink px-3 py-2 text-sm font-medium whitespace-nowrap text-violet-100 transition hover:bg-violet-950 hover:text-white sm:px-4"
 					>
 						Register interest
 					</button>

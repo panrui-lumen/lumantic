@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { parseChatArtifact, parseChatWorking, type ChatWorking } from "../../../shared/beacon-analytics";
 import type { ResolvedDateTimePrefs } from "../../../shared/datetime";
 import { DEMO_FIXTURE_ID_TO_CONVERSATION_ID } from "../../../shared/demo-global-chats";
@@ -6,6 +6,7 @@ import {
 	ArchiveIcon,
 	ChatIcon,
 	CheckIcon,
+	ChevronDown,
 	GlobeIcon,
 	MenuIcon,
 	PinIcon,
@@ -13,7 +14,6 @@ import {
 	SendIcon,
 	SlackIcon,
 	SparkleIcon,
-	SpinnerIcon,
 	ShareIcon,
 	UserIcon,
 } from "../../components/Icons";
@@ -34,14 +34,25 @@ import {
 	Modal,
 	Pill,
 	RelativeTime,
+	Shimmer,
 	ThinkingBubble,
 	Tooltip,
 	buildGenerationPipeline,
 	formatRelative,
 } from "./ui";
 import { useFeatureFlag } from "./featureFlags";
+import { useT } from "./i18n";
+import {
+	chatComposerDraftKey,
+	clearChatComposerDraft,
+	initialChatComposerInput,
+	readChatComposerContext,
+	readChatComposerDraft,
+	writeChatComposerContext,
+	writeChatComposerDraft,
+} from "./chatComposerDraft";
 import { useSelfAvatar } from "./selfAvatar";
-import { formatWithPrefs, useCompanySettings, useResolvedDateTimePrefs } from "./companySettings";
+import { formatWithPrefs, useDisplayCurrency, useResolvedDateTimePrefs } from "./companySettings";
 import type { ChatMessage, Conversation } from "./types";
 import { normalizeProfileName, openUserProfile } from "./userProfile";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,6 +86,68 @@ function sortConversations(list: Conversation[]) {
 function formatMessageStamp(iso: string, prefs: ResolvedDateTimePrefs): string {
 	if (!iso) return "";
 	return formatWithPrefs(iso, prefs, { dateStyle: "medium", timeStyle: "short" });
+}
+
+const CHAT_LIST_SKELETON_WIDTHS = [
+	"w-[72%]",
+	"w-[58%]",
+	"w-[81%]",
+	"w-[64%]",
+	"w-[75%]",
+	"w-[52%]",
+	"w-[69%]",
+	"w-[60%]",
+] as const;
+
+const MESSAGE_SKELETON_ROWS: { align: "start" | "end"; widths: string[] }[] = [
+	{ align: "end", widths: ["w-[55%]"] },
+	{ align: "start", widths: ["w-[92%]", "w-[78%]", "w-[64%]"] },
+	{ align: "end", widths: ["w-[42%]"] },
+	{ align: "start", widths: ["w-[88%]", "w-[71%]"] },
+];
+
+function ChatListSkeleton() {
+	return (
+		<div role="status" aria-label="Loading conversations" className="space-y-0.5 px-1 py-1">
+			{CHAT_LIST_SKELETON_WIDTHS.map((width, i) => (
+				<div key={i} className="rounded-lg px-2 py-2.5">
+					<Shimmer className={`h-3.5 ${width}`} />
+				</div>
+			))}
+		</div>
+	);
+}
+
+function ChatMessagesSkeleton() {
+	return (
+		<div role="status" aria-label="Loading messages" className="mx-auto w-full max-w-3xl space-y-5 py-2">
+			{MESSAGE_SKELETON_ROWS.map((row, i) => (
+				<div
+					key={i}
+					className={`flex gap-3 ${row.align === "end" ? "flex-row-reverse" : ""}`}
+				>
+					<Shimmer className="mt-0.5 size-7 shrink-0 rounded-full" />
+					<div
+						className={`flex min-w-0 flex-1 flex-col gap-2 ${
+							row.align === "end" ? "max-w-[75%] items-end" : "max-w-2xl items-start"
+						}`}
+					>
+						<div
+							className={`space-y-2 rounded-2xl px-3.5 py-3 ${
+								row.align === "end"
+									? "bg-violet-500/15"
+									: "w-full border border-violet-500/15 bg-white/[0.03]"
+							}`}
+						>
+							{row.widths.map((width, j) => (
+								<Shimmer key={j} className={`h-3 ${width}`} />
+							))}
+						</div>
+					</div>
+				</div>
+			))}
+		</div>
+	);
 }
 
 function normalizeSlackUsername(value: string | null | undefined): string {
@@ -183,6 +256,34 @@ function ReplyStatCard({ label, value, hint }: { label: string; value: string; h
 	);
 }
 
+function CollapsibleReplySection({
+	title,
+	defaultOpen = true,
+	children,
+}: {
+	title: string;
+	defaultOpen?: boolean;
+	children: ReactNode;
+}) {
+	const [open, setOpen] = useState(defaultOpen);
+	return (
+		<section>
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				aria-expanded={open}
+				className="mb-2 flex w-full cursor-pointer items-center justify-between gap-3 text-left"
+			>
+				<span className="text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">{title}</span>
+				<ChevronDown
+					className={`size-3.5 shrink-0 text-violet-400/45 transition ${open ? "rotate-180" : ""}`}
+				/>
+			</button>
+			{open ? children : null}
+		</section>
+	);
+}
+
 function ReplyMetaButton({
 	working,
 	confidence,
@@ -215,7 +316,7 @@ function ReplyMetaButton({
 				type="button"
 				onClick={() => setOpen(true)}
 				aria-label="Reply details"
-				className="flex max-w-full flex-wrap items-center gap-1.5 rounded-lg border border-violet-500/20 bg-white/[0.02] px-2 py-1 text-[11px] font-medium text-violet-300/90 transition hover:border-violet-400/40 hover:text-violet-100"
+				className="flex max-w-full cursor-pointer flex-wrap items-center gap-1.5 rounded-lg border border-violet-500/20 bg-white/[0.02] px-2 py-1 text-[11px] font-medium text-violet-300/90 transition hover:border-violet-400/40 hover:text-violet-100"
 			>
 				{!hasMeta && <span>Details</span>}
 				{confidence != null && (
@@ -273,10 +374,7 @@ function ReplyMetaButton({
 				<Modal title="Reply details" onClose={() => setOpen(false)} size="lg">
 					<div className="space-y-5">
 						{hasMeta && (confidencePct != null || latencyMs != null || hasUsage) && (
-							<section>
-								<p className="mb-2.5 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">
-									Reply stats
-								</p>
+							<CollapsibleReplySection title="Reply stats">
 								<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
 									{confidencePct != null && (
 										<ReplyStatCard
@@ -318,12 +416,9 @@ function ReplyMetaButton({
 										</>
 									)}
 								</div>
-							</section>
+							</CollapsibleReplySection>
 						)}
-						<section>
-							<p className="mb-2 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">
-								How Lumantic answered
-							</p>
+						<CollapsibleReplySection title="How Lumantic answered">
 							<ol className="space-y-1.5">
 								{pipeline.map((step) => (
 									<li key={step.id} className="flex items-start gap-2 text-sm text-violet-200/85">
@@ -339,12 +434,9 @@ function ReplyMetaButton({
 									</li>
 								))}
 							</ol>
-						</section>
+						</CollapsibleReplySection>
 						{connectors.length > 0 && (
-							<section>
-								<p className="mb-2 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">
-									Sources consulted
-								</p>
+							<CollapsibleReplySection title="Sources consulted">
 								<ul className="space-y-2">
 									{connectors.map((id) => {
 										const meta = CONNECTOR_META[id];
@@ -366,10 +458,9 @@ function ReplyMetaButton({
 										);
 									})}
 								</ul>
-							</section>
+							</CollapsibleReplySection>
 						)}
-						<section>
-							<p className="mb-2 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">SQL</p>
+						<CollapsibleReplySection title="SQL">
 							{data.sql.length === 0 ? (
 								<p className="text-sm text-violet-400/55">No warehouse query for this reply.</p>
 							) : (
@@ -379,9 +470,8 @@ function ReplyMetaButton({
 									))}
 								</div>
 							)}
-						</section>
-						<section>
-							<p className="mb-2 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">Assumptions</p>
+						</CollapsibleReplySection>
+						<CollapsibleReplySection title="Assumptions">
 							<ul className="space-y-1.5">
 								{data.assumptions.map((a, i) => (
 									<li key={i} className="flex gap-2 text-sm leading-relaxed text-violet-200/85">
@@ -390,10 +480,9 @@ function ReplyMetaButton({
 									</li>
 								))}
 							</ul>
-						</section>
+						</CollapsibleReplySection>
 						{data.notes && data.notes.length > 0 && (
-							<section>
-								<p className="mb-2 text-[11px] font-semibold tracking-wide text-violet-300/70 uppercase">Notes</p>
+							<CollapsibleReplySection title="Notes">
 								<ul className="space-y-1.5">
 									{data.notes.map((n, i) => (
 										<li key={i} className="flex gap-2 text-sm leading-relaxed text-violet-200/75">
@@ -402,7 +491,7 @@ function ReplyMetaButton({
 										</li>
 									))}
 								</ul>
-							</section>
+							</CollapsibleReplySection>
 						)}
 					</div>
 				</Modal>
@@ -559,20 +648,38 @@ export function ChatPage({
 	onNavigate?: (to: string, opts?: { replace?: boolean }) => void;
 }) {
 	const { request, user } = useAppAuth();
+	const t = useT();
 	const queryClient = useQueryClient();
 	const exampleDevBanner = useFeatureFlag("exampleDevBanner");
-	const { data: company } = useCompanySettings();
+	const displayCurrency = useDisplayCurrency();
 	const dateTimePrefs = useResolvedDateTimePrefs();
-	const displayCurrency = company?.displayCurrency ?? "USD";
-	const [scope, setScope] = useState<ChatScope>("global");
+	const initialComposerRef = useRef<{
+		ctx: ReturnType<typeof readChatComposerContext>;
+		input: string;
+	} | null>(null);
+	if (initialComposerRef.current == null) {
+		const ctx = readChatComposerContext();
+		initialComposerRef.current = { ctx, input: initialChatComposerInput(ctx) };
+	}
+	const initialComposer = initialComposerRef.current;
+
+	const [scope, setScope] = useState<ChatScope>(() => initialComposer.ctx?.scope ?? "global");
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [globalApiConversations, setGlobalApiConversations] = useState<Conversation[]>([]);
-	const [activeId, setActiveId] = useState<number | null>(null);
-	const [activeGlobalApiId, setActiveGlobalApiId] = useState<number | null>(null);
+	const [activeId, setActiveId] = useState<number | null>(() =>
+		initialComposer.ctx?.scope === "personal" && !initialComposer.ctx.draftNew
+			? initialComposer.ctx.conversationId
+			: null,
+	);
+	const [activeGlobalApiId, setActiveGlobalApiId] = useState<number | null>(() =>
+		initialComposer.ctx?.scope === "global" && !initialComposer.ctx.draftNew
+			? initialComposer.ctx.conversationId
+			: null,
+	);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [hasMoreMessages, setHasMoreMessages] = useState(false);
 	const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
-	const [input, setInput] = useState("");
+	const [input, setInputState] = useState(() => initialComposer.input);
 	const [sending, setSending] = useState(false);
 	const [pendingQuestion, setPendingQuestion] = useState("");
 	const [loadingConversations, setLoadingConversations] = useState(true);
@@ -585,7 +692,7 @@ export function ChatPage({
 	const [scopeBusy, setScopeBusy] = useState(false);
 	const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
 	const [showArchived, setShowArchived] = useState(false);
-	const [draftNew, setDraftNew] = useState(false);
+	const [draftNew, setDraftNew] = useState(() => initialComposer.ctx?.draftNew ?? false);
 	const [personalPage, setPersonalPage] = useState(1);
 	const [globalPage, setGlobalPage] = useState(1);
 	const [personalTotal, setPersonalTotal] = useState(0);
@@ -611,6 +718,41 @@ export function ChatPage({
 	const messagesGenRef = useRef(0);
 	const messagesRef = useRef(messages);
 	const hasMoreMessagesRef = useRef(hasMoreMessages);
+
+	const composerConversationId = draftNew
+		? null
+		: scope === "global"
+			? activeGlobalApiId
+			: activeId;
+	const draftKey = chatComposerDraftKey(scope, composerConversationId);
+	const draftKeyRef = useRef(draftKey);
+	draftKeyRef.current = draftKey;
+	const loadedDraftKeyRef = useRef(draftKey);
+
+	function setInput(value: string) {
+		setInputState(value);
+		writeChatComposerDraft(draftKeyRef.current, value);
+	}
+
+	function clearComposerInput() {
+		clearChatComposerDraft(draftKeyRef.current);
+		setInputState("");
+	}
+
+	useEffect(() => {
+		writeChatComposerContext({
+			scope,
+			draftNew,
+			conversationId: composerConversationId,
+		});
+	}, [scope, draftNew, composerConversationId]);
+
+	useEffect(() => {
+		if (loadedDraftKeyRef.current === draftKey) return;
+		loadedDraftKeyRef.current = draftKey;
+		setInputState(readChatComposerDraft(draftKey));
+	}, [draftKey]);
+
 
 	const activeGlobalApi =
 		globalApiConversations.find((c) => c.id === activeGlobalApiId) ??
@@ -783,7 +925,9 @@ export function ChatPage({
 				setMessages([]);
 				setHasMoreMessages(false);
 				setLoadingOlderMessages(false);
-				setInput("");
+				clearChatComposerDraft(chatComposerDraftKey(newChat, null));
+				setInputState("");
+				loadedDraftKeyRef.current = chatComposerDraftKey(newChat, null);
 				setMobileHistoryOpen(false);
 				setNewestAssistantId(null);
 				setActiveId(null);
@@ -882,6 +1026,31 @@ export function ChatPage({
 		setActiveGlobalApiId(first.id);
 		void loadMessages(first.id);
 	}, [loadingConversations, scope, draftNew, activeGlobalApiId, globalApiConversations, locationSearch]);
+
+	useEffect(() => {
+		if (loadingConversations) return;
+		if (scope !== "personal" || draftNew) return;
+		if (activeId != null) return;
+		if (locationSearch) {
+			const params = new URLSearchParams(locationSearch);
+			if (params.get("c") || params.get("fixture") || params.get("new")) return;
+		}
+		const first = conversations[0];
+		if (!first) return;
+		setActiveId(first.id);
+		void loadMessages(first.id);
+	}, [loadingConversations, scope, draftNew, activeId, conversations, locationSearch]);
+
+	const needsRestoredMessagesRef = useRef(
+		Boolean(initialComposer.ctx && !initialComposer.ctx.draftNew && initialComposer.ctx.conversationId != null),
+	);
+	useEffect(() => {
+		if (!needsRestoredMessagesRef.current || loadingConversations) return;
+		const id = scope === "global" ? activeGlobalApiId : activeId;
+		if (id == null) return;
+		needsRestoredMessagesRef.current = false;
+		void loadMessages(id);
+	}, [loadingConversations, scope, activeId, activeGlobalApiId]);
 
 	useEffect(() => {
 		if (loadingOlderRef.current) return;
@@ -1131,7 +1300,10 @@ export function ChatPage({
 		setHasMoreMessages(false);
 		setLoadingOlderMessages(false);
 		stickToBottomRef.current = true;
-		setInput("");
+		const newKey = chatComposerDraftKey(scope, null);
+		clearChatComposerDraft(newKey);
+		setInputState("");
+		loadedDraftKeyRef.current = newKey;
 		setMobileHistoryOpen(false);
 		setNewestAssistantId(null);
 		if (scope === "global") {
@@ -1149,7 +1321,7 @@ export function ChatPage({
 		if (!content || sending || sendingRef.current) return;
 		if (scope === "global" && !draftNew && activeGlobalApiId == null) return;
 		setError("");
-		setInput("");
+		clearComposerInput();
 		setPendingQuestion(content);
 		setSending(true);
 		sendingRef.current = true;
@@ -1302,6 +1474,7 @@ export function ChatPage({
 				className={`group relative flex items-center rounded-lg px-1 ${active ? "bg-violet-500/15" : "hover:bg-white/[0.03]"}`}
 			>
 				<button
+					type="button"
 					onClick={() => handleSelectConversation(c.id)}
 					className={`min-w-0 flex-1 truncate px-2 py-2.5 pr-9 text-left text-sm sm:pr-2 sm:group-hover:pr-9 sm:group-focus-within:pr-9 ${active ? "text-violet-50" : unreadCount > 0 ? "font-semibold text-violet-100" : "text-violet-300/70"}`}
 				>
@@ -1321,7 +1494,7 @@ export function ChatPage({
 						)}
 					</span>
 				</button>
-				<span className="absolute top-1/2 right-1 z-10 -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+				<span className="absolute top-1/2 right-1 z-10 -translate-y-1/2 opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:focus-within:pointer-events-auto sm:focus-within:opacity-100">
 					<ChatOverflowMenu
 						pinned={!!c.pinned}
 						archived={!!c.archived}
@@ -1350,32 +1523,37 @@ export function ChatPage({
 		return (
 			<div
 				key={`api-${c.id}`}
-				className={`group relative rounded-lg px-1 ${active ? "bg-violet-500/15" : "hover:bg-white/[0.03]"}`}
+				role="button"
+				tabIndex={0}
+				aria-current={active ? "true" : undefined}
+				aria-label={c.title}
+				onClick={() => handleSelectGlobalApi(c.id)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						void handleSelectGlobalApi(c.id);
+					}
+				}}
+				className={`group relative cursor-pointer rounded-lg px-1 ${active ? "bg-violet-500/15" : "hover:bg-white/[0.03]"}`}
 			>
 				<div className="min-w-0 px-2 py-2.5">
-					<button
-						type="button"
-						onClick={() => handleSelectGlobalApi(c.id)}
-						className="w-full min-w-0 pr-9 text-left sm:pr-0 sm:group-hover:pr-9 sm:group-focus-within:pr-9"
+					<span
+						className={`flex min-w-0 items-center gap-1.5 pr-9 text-sm sm:pr-0 sm:group-hover:pr-9 sm:group-focus-within:pr-9 ${active ? "text-violet-50" : unreadCount > 0 ? "font-semibold text-violet-100" : "text-violet-300/70"}`}
 					>
-						<span
-							className={`flex min-w-0 items-center gap-1.5 text-sm ${active ? "text-violet-50" : unreadCount > 0 ? "font-semibold text-violet-100" : "text-violet-300/70"}`}
-						>
-							{!!c.pinned && <PinIcon className="size-3 shrink-0 text-violet-300/70" />}
-							{!!c.archived && <ArchiveIcon className="size-3 shrink-0 text-violet-400/50" />}
-							<Tooltip content={c.title}>
-								<span className="min-w-0 flex-1 truncate">{c.title}</span>
-							</Tooltip>
-							{unreadCount > 0 && !active && (
-								<span
-									aria-label={`${unreadCount} unread`}
-									className="shrink-0 rounded-full bg-violet-500/25 px-1.5 py-0.5 text-[11px] font-semibold text-violet-100"
-								>
-									{unreadCount}
-								</span>
-							)}
-						</span>
-					</button>
+						{!!c.pinned && <PinIcon className="size-3 shrink-0 text-violet-300/70" />}
+						{!!c.archived && <ArchiveIcon className="size-3 shrink-0 text-violet-400/50" />}
+						<Tooltip content={c.title}>
+							<span className="min-w-0 flex-1 truncate">{c.title}</span>
+						</Tooltip>
+						{unreadCount > 0 && !active && (
+							<span
+								aria-label={`${unreadCount} unread`}
+								className="shrink-0 rounded-full bg-violet-500/25 px-1.5 py-0.5 text-[11px] font-semibold text-violet-100"
+							>
+								{unreadCount}
+							</span>
+						)}
+					</span>
 					<span className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
 						<span className="min-w-0 flex-1 overflow-hidden">
 							<UserChip
@@ -1397,7 +1575,11 @@ export function ChatPage({
 						</span>
 					</span>
 				</div>
-				<span className="absolute top-2 right-1 z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+				<span
+					className="absolute top-2 right-1 z-10 opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:focus-within:pointer-events-auto sm:focus-within:opacity-100"
+					onClick={(e) => e.stopPropagation()}
+					onKeyDown={(e) => e.stopPropagation()}
+				>
 					<ChatOverflowMenu
 						pinned={!!c.pinned}
 						archived={!!c.archived}
@@ -1416,38 +1598,36 @@ export function ChatPage({
 				<div className="grid grid-cols-2 gap-1 rounded-xl border border-violet-500/15 bg-white/[0.02] p-1 text-xs font-medium">
 					<button
 						onClick={() => switchScope("global")}
-						className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition ${
+						className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 transition ${
 							scope === "global" ? "bg-violet-500/20 text-violet-50" : "text-violet-300/60 hover:text-violet-100"
 						}`}
 					>
 						<GlobeIcon className="size-3.5" />
-						Global
+						{t("chat.global")}
 					</button>
 					<button
 						onClick={() => switchScope("personal")}
-						className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition ${
+						className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 transition ${
 							scope === "personal" ? "bg-violet-500/20 text-violet-50" : "text-violet-300/60 hover:text-violet-100"
 						}`}
 					>
 						<UserIcon className="size-3.5" />
-						Personal
+						{t("chat.personal")}
 					</button>
 				</div>
 				<button
 					onClick={handleNewChat}
-					className="flex w-full items-center justify-center gap-2 rounded-lg border border-violet-500/25 px-3 py-2.5 text-sm font-medium text-violet-100 transition hover:border-violet-400/50 hover:bg-white/[0.03]"
+					className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-violet-500/25 px-3 py-2.5 text-sm font-medium text-violet-100 transition hover:border-violet-400/50 hover:bg-white/[0.03]"
 				>
 					<PlusIcon className="size-4" />
-					New chat
+					{t("chat.newChat")}
 				</button>
 			</div>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
 					{scope === "personal" ? (
 						loadingConversations ? (
-							<div className="flex justify-center py-8">
-								<SpinnerIcon className="size-4 text-violet-400" />
-							</div>
+							<ChatListSkeleton />
 						) : personalActive.length === 0 && personalArchived.length === 0 && personalTotal === 0 ? (
 							<p className="px-2 py-4 text-center text-xs text-violet-400/40">No conversations yet</p>
 						) : (
@@ -1468,9 +1648,7 @@ export function ChatPage({
 							</>
 						)
 					) : loadingConversations ? (
-						<div className="flex justify-center py-8">
-							<SpinnerIcon className="size-4 text-violet-400" />
-						</div>
+						<ChatListSkeleton />
 					) : (
 						<>
 							{globalApiActive.map(renderGlobalApiRow)}
@@ -1614,7 +1792,7 @@ export function ChatPage({
 					<button
 						onClick={() => setMobileHistoryOpen(true)}
 						className="flex size-8 items-center justify-center rounded-lg text-violet-300/60 hover:bg-white/[0.05] lg:hidden"
-						aria-label="Chat history"
+						aria-label={t("chat.history")}
 					>
 						<MenuIcon className="size-4" />
 					</button>
@@ -1687,9 +1865,7 @@ export function ChatPage({
 					{error && <ErrorBanner message={error} />}
 
 					{(scope === "personal" || activeGlobalApiId != null) && loadingMessages ? (
-						<div className="flex justify-center py-16">
-							<SpinnerIcon className="size-5 text-violet-400" />
-						</div>
+						<ChatMessagesSkeleton />
 					) : displayMessages.length === 0 ? (
 						<div className="flex h-full flex-col items-center justify-center gap-3 py-16 text-center">
 							<span className="flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-700">
@@ -1699,7 +1875,7 @@ export function ChatPage({
 								<p className="font-medium text-violet-100">
 									{scope === "global" && !draftNew && activeGlobalApiId == null
 										? "No global chats yet"
-										: "Ask Lumantic anything"}
+										: t("chat.askAnything")}
 							</p>
 								<p className="mt-1 max-w-sm text-sm text-violet-300/50">
 									{scope === "global" && !draftNew && activeGlobalApiId == null
@@ -1716,8 +1892,11 @@ export function ChatPage({
 								<div className="flex items-center justify-center gap-2 py-1 text-xs text-violet-400/55">
 									{loadingOlderMessages ? (
 										<>
-											<SpinnerIcon className="size-3.5" />
-											Fetching later messages
+											<span className="sr-only">Fetching later messages</span>
+											<div className="flex w-full max-w-xs flex-col gap-1.5 py-1" aria-hidden>
+												<Shimmer className="mx-auto h-2.5 w-[70%]" />
+												<Shimmer className="mx-auto h-2.5 w-[48%]" />
+											</div>
 										</>
 									) : (
 										<span>Scroll up for earlier messages</span>

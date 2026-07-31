@@ -9,8 +9,10 @@ import diff from "highlight.js/lib/languages/diff";
 
 hljs.registerLanguage("typescript", typescript);
 hljs.registerLanguage("ts", typescript);
+hljs.registerLanguage("tsx", typescript);
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("js", javascript);
+hljs.registerLanguage("jsx", javascript);
 hljs.registerLanguage("sql", sql);
 hljs.registerLanguage("json", json);
 hljs.registerLanguage("bash", bash);
@@ -131,15 +133,30 @@ export function CodeHighlight({
 	code,
 	language = "typescript",
 	filename,
+	embedded = false,
+	className = "",
 }: {
 	code: string;
 	language?: string;
 	filename?: string;
+	/** Skip outer card chrome when nested inside another artifact panel. */
+	embedded?: boolean;
+	className?: string;
 }) {
 	const nodes = useMemo(() => highlightCode(code, language), [code, language]);
 
+	if (embedded) {
+		return (
+			<pre
+				className={`max-h-72 overflow-auto p-3 font-mono text-[11px] leading-relaxed whitespace-pre ${className}`}
+			>
+				<code>{nodes}</code>
+			</pre>
+		);
+	}
+
 	return (
-		<div className="w-full min-w-0 overflow-hidden rounded-xl border border-violet-500/15 bg-[#0c0a14]">
+		<div className={`w-full min-w-0 overflow-hidden rounded-xl border border-violet-500/15 bg-[#0c0a14] ${className}`}>
 			{(filename || language) && (
 				<div className="flex items-center justify-between gap-2 border-b border-violet-500/10 px-3 py-1.5">
 					<span className="truncate font-mono text-[11px] text-violet-300/55">{filename || language}</span>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BrainIcon, ChevronDown, PencilIcon, PlusIcon, SearchIcon, SpinnerIcon } from "../../components/Icons";
+import { BrainIcon, PencilIcon, PlusIcon, SearchIcon, SpinnerIcon } from "../../components/Icons";
 import { useAppAuth } from "./context";
 import { ProposedMemoriesList } from "./ProposedMemoriesPage";
 import { formatWithPrefs, useResolvedDateTimePrefs } from "./companySettings";
@@ -10,12 +10,14 @@ import {
 	ErrorBanner,
 	ListPagination,
 	Pill,
+	Select,
 	Tooltip,
 	inputClass,
-	selectClass,
 	textareaClass,
 } from "./ui";
 import { MEMORY_CATEGORIES, type Memory } from "./types";
+import { UserChip } from "./UserChip";
+import { useT } from "./i18n";
 import { normalizeProfileName } from "./userProfile";
 
 export type MemoriesTab = "confirmed" | "proposed";
@@ -32,16 +34,33 @@ const SORT_OPTIONS: { value: MemorySort; label: string }[] = [
 
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 
-function memoryAttributionLabel(memory: Memory): string {
+function MemoryAttribution({ memory }: { memory: Memory }) {
 	if (memory.source === "ai" || memory.source === "ai-chat") {
-		return "Learned by Lumantic";
+		return (
+			<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+				<span>Learned by</span>
+				<UserChip name="Lumantic" size="xs" muted />
+			</span>
+		);
 	}
 	const by = memory.added_by?.trim();
 	const named = Boolean(by && normalizeProfileName(by) !== "lumantic");
 	if (memory.source === "manual") {
-		return named ? `Added manually by ${by}` : "Added manually";
+		if (!named) return <span>Added manually</span>;
+		return (
+			<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+				<span>Added manually by</span>
+				<UserChip name={by!} size="xs" muted />
+			</span>
+		);
 	}
-	return named ? `${memory.source} by ${by}` : memory.source;
+	if (!named) return <span>{memory.source}</span>;
+	return (
+		<span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+			<span>{memory.source} by</span>
+			<UserChip name={by!} size="xs" muted />
+		</span>
+	);
 }
 
 function memoryTimestamp(iso: string) {
@@ -73,16 +92,13 @@ function sortMemories(list: Memory[], sort: MemorySort) {
 
 function CategorySelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
 	return (
-		<div className="relative">
-			<select value={value} onChange={(e) => onChange(e.target.value)} className={selectClass}>
-				{MEMORY_CATEGORIES.map((cat) => (
-					<option key={cat} value={cat} className="bg-ink">
-						{cat}
-					</option>
-				))}
-			</select>
-			<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-		</div>
+		<Select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Category">
+			{MEMORY_CATEGORIES.map((cat) => (
+				<option key={cat} value={cat} className="bg-ink">
+					{cat}
+				</option>
+			))}
+		</Select>
 	);
 }
 
@@ -211,7 +227,7 @@ function MemoryCard({
 						<button
 							onClick={() => setEditing(true)}
 							aria-label="Edit memory"
-							className="flex size-8 items-center justify-center rounded-lg text-violet-300/60 transition hover:bg-violet-500/15 hover:text-violet-100"
+							className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-violet-300/60 transition hover:bg-violet-500/15 hover:text-violet-100"
 						>
 							<PencilIcon className="size-4" />
 						</button>
@@ -227,7 +243,7 @@ function MemoryCard({
 					</Pill>
 				)}
 				<span>·</span>
-				<span>{memoryAttributionLabel(memory)}</span>
+				<MemoryAttribution memory={memory} />
 				<span>·</span>
 				<span>{updatedLabel || memory.updated_at}</span>
 			</div>
@@ -245,6 +261,7 @@ export function MemoriesPage({
 	proposedCount?: number;
 }) {
 	const { request } = useAppAuth();
+	const t = useT();
 	const [memories, setMemories] = useState<Memory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -325,7 +342,7 @@ export function MemoriesPage({
 			<div className="border-b border-violet-500/10 px-6 py-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<h1 className="font-display text-xl font-semibold text-violet-50">Memories</h1>
+						<h1 className="font-display text-xl font-semibold text-violet-50">{t("memories.title")}</h1>
 						<p className="mt-1 text-sm text-violet-300/60">
 							{confirmed
 								? "Everything Lumantic has learned and confirmed about your business."
@@ -335,7 +352,7 @@ export function MemoriesPage({
 					{confirmed && (
 						<button
 							onClick={() => setShowAdd((v) => !v)}
-							className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+							className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
 						>
 							<PlusIcon className="size-4" />
 							Add memory
@@ -348,20 +365,20 @@ export function MemoriesPage({
 						<button
 							type="button"
 							onClick={() => onTabChange("confirmed")}
-							className={`rounded-lg px-3 py-2 transition ${
+							className={`cursor-pointer rounded-lg px-3 py-2 transition ${
 								confirmed ? "bg-violet-500/20 text-violet-50" : "text-violet-300/60 hover:text-violet-100"
 							}`}
 						>
-							Confirmed
+							{t("memories.confirmed")}
 						</button>
 						<button
 							type="button"
 							onClick={() => onTabChange("proposed")}
-							className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 transition ${
+							className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 transition ${
 								!confirmed ? "bg-violet-500/20 text-violet-50" : "text-violet-300/60 hover:text-violet-100"
 							}`}
 						>
-							Proposed
+							{t("memories.proposed")}
 							{proposedCount > 0 && (
 								<span className="rounded-full bg-violet-500/25 px-1.5 py-0.5 text-[11px] font-semibold text-violet-100">
 									{proposedCount}
@@ -380,23 +397,23 @@ export function MemoriesPage({
 									className={`${inputClass} pl-9`}
 								/>
 							</div>
-							<div className="relative">
+							<div>
 								<label className="sr-only" htmlFor="memory-sort">
 									Sort memories
 								</label>
-								<select
+								<Select
 									id="memory-sort"
 									value={sort}
 									onChange={(e) => setSort(e.target.value as MemorySort)}
-									className={`${selectClass} min-w-[10.5rem] py-2.5 pr-8 text-xs`}
+									wrapperClassName="min-w-[10.5rem]"
+									size="sm"
 								>
 									{SORT_OPTIONS.map((option) => (
 										<option key={option.value} value={option.value} className="bg-ink">
 											{option.label}
 										</option>
 									))}
-								</select>
-								<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
+								</Select>
 							</div>
 						</>
 					)}

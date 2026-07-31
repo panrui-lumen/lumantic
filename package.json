@@ -22,7 +22,7 @@
 		"test": "jest --config jest.config.cjs",
 		"test:watch": "jest --config jest.config.cjs --watch",
 		"test:e2e": "playwright test",
-		"test:e2e:relevant": "playwright test e2e/app-smoke.spec.ts e2e/chat-tooltips.spec.ts e2e/reply-usage.spec.ts e2e/settings-access.spec.ts e2e/chat-pagination.spec.ts e2e/chat-charts.spec.ts"
+		"test:e2e:relevant": "playwright test e2e/app-smoke.spec.ts e2e/chat-tooltips.spec.ts e2e/reply-usage.spec.ts e2e/settings-access.spec.ts e2e/chat-pagination.spec.ts e2e/chat-charts.spec.ts e2e/chat-composer-draft.spec.ts"
 	},
 	"dependencies": {
 		"@radix-ui/react-dialog": "^1.1.23",
@@ -30,8 +30,10 @@
 		"@tanstack/react-query": "^5.101.4",
 		"highlight.js": "^11.11.1",
 		"hono": "4.11.1",
+		"i18next": "^26.3.6",
 		"react": "19.2.1",
 		"react-dom": "19.2.1",
+		"react-i18next": "^17.0.11",
 		"recharts": "^3.10.1",
 		"sonner": "^2.0.7"
 	},

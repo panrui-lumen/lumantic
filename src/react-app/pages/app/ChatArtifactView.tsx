@@ -25,6 +25,7 @@ import type {
 	StackedBarChartArtifact,
 } from "../../../shared/beacon-analytics";
 import { ExternalLinkIcon, GitHubIcon } from "../../components/Icons";
+import { CodeHighlight } from "./CodeHighlight";
 
 /** Lumantic brand palette for Recharts (matches index.css violet scale + accents). */
 export const CHART_COLORS = [
@@ -333,9 +334,11 @@ function CodeFixCard({ artifact }: { artifact: CodeFixArtifact }) {
 					<ExternalLinkIcon className="size-3 opacity-80" />
 				</a>
 			</div>
-			<pre className="max-h-72 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-violet-100/85">
-				<code>{artifact.snippet}</code>
-			</pre>
+			<CodeHighlight
+				code={artifact.snippet}
+				language={artifact.language || "typescript"}
+				embedded
+			/>
 			<p className="border-t border-violet-500/10 px-3 py-2 text-[11px] text-violet-400/50">
 				PR title: {artifact.prTitle}
 			</p>

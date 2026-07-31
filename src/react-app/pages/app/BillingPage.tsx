@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckIcon, CreditCardIcon, DownloadIcon, SparkleIcon } from "../../components/Icons";
-import { ListPagination, PageHeader, Pill, Tooltip, inputClass } from "./ui";
+import { ListPagination, PageHeader, Pill, Select, Tooltip, inputClass } from "./ui";
 
 type PlanId = "starter" | "scale" | "enterprise";
 
@@ -45,18 +45,26 @@ const INVOICES = [
 	{ id: 12, date: "Aug 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
 ];
 
-type UsageMetricId = "messages" | "slackPosts" | "memories" | "seats";
+type UsageMetricId = "tokens" | "slackPosts" | "memories" | "seats";
 
 const PLAN_PRICE: Record<PlanId, number | null> = { starter: 99, scale: 499, enterprise: null };
 
 const PLAN_QUOTAS: Record<PlanId, Record<UsageMetricId, number>> = {
-	starter: { messages: 300, slackPosts: 0, memories: 50, seats: 3 },
-	scale: { messages: 1000, slackPosts: 250, memories: 200, seats: 10 },
-	enterprise: { messages: Infinity, slackPosts: Infinity, memories: Infinity, seats: Infinity },
+	starter: { tokens: 300_000, slackPosts: 0, memories: 50, seats: 3 },
+	scale: { tokens: 1_000_000, slackPosts: 250, memories: 200, seats: 10 },
+	enterprise: { tokens: Infinity, slackPosts: Infinity, memories: Infinity, seats: Infinity },
 };
 
-const USAGE_METRICS: { id: UsageMetricId; label: string; unit: string; used: number; rate: number }[] = [
-	{ id: "messages", label: "AI chat messages", unit: "message", used: 1204, rate: 0.02 },
+/** `ratePer` bills overage in chunks (e.g. $0.02 per 1K tokens). */
+const USAGE_METRICS: {
+	id: UsageMetricId;
+	label: string;
+	unit: string;
+	used: number;
+	rate: number;
+	ratePer?: number;
+}[] = [
+	{ id: "tokens", label: "Tokens consumed", unit: "token", used: 1_204_000, rate: 0.02, ratePer: 1000 },
 	{ id: "slackPosts", label: "Slack posts", unit: "post", used: 86, rate: 0.05 },
 	{ id: "memories", label: "Memories tracked", unit: "memory", used: 48, rate: 0.1 },
 	{ id: "seats", label: "Team seats", unit: "seat", used: 3, rate: 15 },
@@ -120,10 +128,21 @@ function PlanPicker({
 	);
 }
 
+function usageCost(used: number, quota: number, rate: number, ratePer = 1) {
+	const overage = Number.isFinite(quota) ? Math.max(0, used - quota) : 0;
+	return (overage / ratePer) * rate;
+}
+
+function rateUnitLabel(unit: string, ratePer = 1) {
+	if (ratePer === 1000) return `1K ${unit}s`;
+	return unit;
+}
+
 function UsageRow({ metric, quota }: { metric: (typeof USAGE_METRICS)[number]; quota: number }) {
 	const unlimited = !Number.isFinite(quota);
 	const overage = unlimited ? 0 : Math.max(0, metric.used - quota);
-	const cost = overage * metric.rate;
+	const ratePer = metric.ratePer ?? 1;
+	const cost = usageCost(metric.used, quota, metric.rate, ratePer);
 	const pct = unlimited ? 100 : Math.min(100, (metric.used / Math.max(quota, 1)) * 100);
 	const overLimit = !unlimited && overage > 0;
 
@@ -134,7 +153,8 @@ function UsageRow({ metric, quota }: { metric: (typeof USAGE_METRICS)[number]; q
 					<p className="text-sm font-medium text-violet-100">{metric.label}</p>
 					<p className="text-xs text-violet-400/50">
 						{metric.used.toLocaleString()} {unlimited ? "used" : `/ ${quota.toLocaleString()} included`}
-						{overLimit && ` · ${overage.toLocaleString()} over at $${metric.rate.toFixed(2)}/${metric.unit}`}
+						{overLimit &&
+							` · ${overage.toLocaleString()} over at $${metric.rate.toFixed(2)}/${rateUnitLabel(metric.unit, ratePer)}`}
 					</p>
 				</div>
 				<p className={`shrink-0 text-sm font-semibold ${overLimit ? "text-amber-300" : "text-violet-300/50"}`}>
@@ -151,23 +171,47 @@ function UsageRow({ metric, quota }: { metric: (typeof USAGE_METRICS)[number]; q
 	);
 }
 
+const EXPIRY_MONTHS = [
+	{ value: "01", label: "01 - January" },
+	{ value: "02", label: "02 - February" },
+	{ value: "03", label: "03 - March" },
+	{ value: "04", label: "04 - April" },
+	{ value: "05", label: "05 - May" },
+	{ value: "06", label: "06 - June" },
+	{ value: "07", label: "07 - July" },
+	{ value: "08", label: "08 - August" },
+	{ value: "09", label: "09 - September" },
+	{ value: "10", label: "10 - October" },
+	{ value: "11", label: "11 - November" },
+	{ value: "12", label: "12 - December" },
+];
+
+function expiryYears(fromYear = new Date().getFullYear(), count = 16) {
+	return Array.from({ length: count }, (_, i) => {
+		const year = fromYear + i;
+		return { value: String(year).slice(-2), label: String(year) };
+	});
+}
+
 export function BillingPage() {
 	const [planId, setPlanId] = useState<PlanId>("scale");
 	const [showPlanPicker, setShowPlanPicker] = useState(false);
 	const [showPaymentForm, setShowPaymentForm] = useState(false);
 	const [paymentSaved, setPaymentSaved] = useState(false);
+	const [cardExpMonth, setCardExpMonth] = useState("08");
+	const [cardExpYear, setCardExpYear] = useState("28");
 	const [invoicePage, setInvoicePage] = useState(1);
+	const yearOptions = expiryYears();
 
 	const plan = PLANS.find((p) => p.id === planId)!;
 	const quotas = PLAN_QUOTAS[planId];
 	const basePrice = PLAN_PRICE[planId];
 
-	const usageCost = USAGE_METRICS.reduce((sum, metric) => {
-		const quota = quotas[metric.id];
-		const overage = Number.isFinite(quota) ? Math.max(0, metric.used - quota) : 0;
-		return sum + overage * metric.rate;
-	}, 0);
-	const estimatedTotal = basePrice === null ? null : basePrice + usageCost;
+	const usageTotal = USAGE_METRICS.reduce(
+		(sum, metric) => sum + usageCost(metric.used, quotas[metric.id], metric.rate, metric.ratePer ?? 1),
+		0,
+	);
+	const estimatedTotal = basePrice === null ? null : basePrice + usageTotal;
 
 	const totalInvoicePages = Math.max(1, Math.ceil(INVOICES.length / PAGE_SIZE));
 	const safeInvoicePage = Math.min(invoicePage, totalInvoicePages);
@@ -189,8 +233,8 @@ export function BillingPage() {
 						<p className="mt-1 text-xs text-violet-400/50">Plan cost this cycle</p>
 					</div>
 					<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4">
-						<p className={`font-display text-2xl font-semibold ${usageCost > 0 ? "text-amber-300" : "text-violet-50"}`}>
-							{currency(usageCost)}
+						<p className={`font-display text-2xl font-semibold ${usageTotal > 0 ? "text-amber-300" : "text-violet-50"}`}>
+							{currency(usageTotal)}
 						</p>
 						<p className="mt-1 text-xs text-violet-400/50">Usage charges this cycle</p>
 					</div>
@@ -214,7 +258,7 @@ export function BillingPage() {
 					</div>
 					<div className="mt-2 flex items-center justify-end px-1">
 						<p className="text-sm text-violet-300/60">
-							Usage total: <span className="font-semibold text-violet-100">{currency(usageCost)}</span>
+							Usage total: <span className="font-semibold text-violet-100">{currency(usageTotal)}</span>
 						</p>
 					</div>
 				</section>
@@ -259,24 +303,58 @@ export function BillingPage() {
 						{showPaymentForm ? (
 							<div className="flex flex-col gap-3">
 								<input placeholder="Card number" defaultValue="4242 4242 4242 4242" className={inputClass} />
-								<div className="grid grid-cols-2 gap-3">
-									<input placeholder="MM / YY" defaultValue="08 / 28" className={inputClass} />
-									<input placeholder="CVC" defaultValue="123" className={inputClass} />
+								<div className="grid grid-cols-3 gap-3">
+									<label className="block min-w-0">
+										<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Expiry month</span>
+										<Select
+											value={cardExpMonth}
+											onChange={(e) => setCardExpMonth(e.target.value)}
+											aria-label="Expiry month"
+											wrapperClassName="w-full"
+										>
+											{EXPIRY_MONTHS.map((month) => (
+												<option key={month.value} value={month.value}>
+													{month.label}
+												</option>
+											))}
+										</Select>
+									</label>
+									<label className="block min-w-0">
+										<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Expiry year</span>
+										<Select
+											value={cardExpYear}
+											onChange={(e) => setCardExpYear(e.target.value)}
+											aria-label="Expiry year"
+											wrapperClassName="w-full"
+										>
+											{yearOptions.map((year) => (
+												<option key={year.value} value={year.value}>
+													{year.label}
+												</option>
+											))}
+										</Select>
+									</label>
+									<label className="block min-w-0">
+										<span className="mb-1.5 block text-xs font-medium text-violet-300/60">CVC</span>
+										<input placeholder="123" defaultValue="123" className={inputClass} />
+									</label>
 								</div>
 								<div className="flex items-center justify-end">
 									<div className="flex items-center gap-2">
 										<button
+											type="button"
 											onClick={() => setShowPaymentForm(false)}
-											className="rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100"
+											className="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100"
 										>
 											Cancel
 										</button>
 										<button
+											type="button"
 											onClick={() => {
 												setShowPaymentForm(false);
 												setPaymentSaved(true);
 											}}
-											className="rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+											className="cursor-pointer rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
 										>
 											Save card
 										</button>
@@ -292,13 +370,15 @@ export function BillingPage() {
 									<div>
 										<p className="font-medium text-violet-50">Visa •••• 4242</p>
 										<p className="text-xs text-violet-400/50">
-											Expires 08/28{paymentSaved && <span className="ml-2 text-emerald-300">· Updated</span>}
+											Expires {cardExpMonth}/{cardExpYear}
+											{paymentSaved && <span className="ml-2 text-emerald-300">· Updated</span>}
 										</p>
 									</div>
 								</div>
 								<button
+									type="button"
 									onClick={() => setShowPaymentForm(true)}
-									className="rounded-lg border border-violet-500/25 px-3.5 py-2 text-sm font-medium text-violet-200 transition hover:border-violet-400/50 hover:text-violet-50"
+									className="cursor-pointer rounded-lg border border-violet-500/25 px-3.5 py-2 text-sm font-medium text-violet-200 transition hover:border-violet-400/50 hover:text-violet-50"
 								>
 									Update payment method
 								</button>

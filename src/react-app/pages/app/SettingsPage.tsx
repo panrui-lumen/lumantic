@@ -2,21 +2,17 @@ import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, typ
 import {
 	AlertIcon,
 	CheckIcon,
-	ChevronDown,
 	DatabaseIcon,
 	DatadogIcon,
 	GitHubIcon,
 	HashIcon,
 	LinkIcon,
-	PencilIcon,
 	SlackIcon,
 	SpinnerIcon,
 } from "../../components/Icons";
 import { useQueryClient } from "@tanstack/react-query";
-import { EditProfileModal } from "./EditProfileModal";
 import { useAppAuth } from "./context";
-import { UserAvatar } from "./UserAvatar";
-import { ErrorBanner, SettingRow, Toggle, inputClass, selectClass, textareaClass, Modal } from "./ui";
+import { ErrorBanner, SettingRow, Toggle, inputClass, textareaClass, Modal, Select } from "./ui";
 import type {
 	AppUser,
 	CompanySettings,
@@ -28,16 +24,8 @@ import type {
 	SlackChannel,
 	SlackSettings,
 } from "./types";
-import { DISPLAY_CURRENCIES } from "../../../shared/currency";
-import {
-	detectBrowserTimeFormat,
-	detectBrowserTimezone,
-	formatAppDateTime,
-	isTimeFormatPreference,
-	listTimeZones,
-	resolveDateTimePrefs,
-} from "../../../shared/datetime";
 import { normalizeCompanySettings } from "./companySettings";
+import { useT } from "./i18n";
 import {
 	CATALOG_CONNECTORS,
 	CONNECTOR_CATEGORY_META,
@@ -45,33 +33,22 @@ import {
 	catalogConnectorsInCategory,
 } from "./ConnectorPills";
 
-type SettingsTab = "preferences" | "notifications" | "integrations" | "workspace";
+type SettingsTab = "integrations" | "workspace";
 
-const TIMEZONE_OPTIONS = listTimeZones();
-
-const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
-	{ id: "preferences", label: "Preferences" },
-	{ id: "notifications", label: "Notifications" },
-	{ id: "integrations", label: "Integrations" },
-	{ id: "workspace", label: "Workspace" },
-];
+const SETTINGS_TAB_IDS: SettingsTab[] = ["integrations", "workspace"];
 
 function tabBlurb(tab: SettingsTab): string {
 	switch (tab) {
-		case "notifications":
-			return "Choose which emails Lumantic sends for this workspace.";
 		case "integrations":
 			return "Connectors so Lumantic can answer from live product, code, and reliability data.";
 		case "workspace":
 			return "Rename the company, limit invite domains, or delete the workspace.";
-		default:
-			return "Workspace display preferences and your profile.";
 	}
 }
 
 function parseTab(raw: string | null): SettingsTab {
-	if (raw === "integrations" || raw === "notifications" || raw === "workspace") return raw;
-	return "preferences";
+	if (raw === "workspace") return "workspace";
+	return "integrations";
 }
 
 function DeleteWorkspaceModal({
@@ -413,23 +390,20 @@ function ConnectedSlackCard({
 
 				<label className="block">
 					<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Default channel</span>
-					<div className="relative">
-						<HashIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-violet-400/50" />
-						<select
-							value={settings.defaultChannelId ?? ""}
-							onChange={(e) => saveField("channel", { defaultChannelId: e.target.value })}
-							disabled={savingField === "channel"}
-							className={`${inputClass} appearance-none pr-8 pl-8`}
-						>
-							{channels.map((c) => (
-								<option key={c.id} value={c.id} className="bg-ink">
-									{c.name}
-									{c.is_private ? " (private)" : ""}
-								</option>
-							))}
-						</select>
-						<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-					</div>
+					<Select
+						value={settings.defaultChannelId ?? ""}
+						onChange={(e) => saveField("channel", { defaultChannelId: e.target.value })}
+						disabled={savingField === "channel"}
+						wrapperClassName="w-full"
+						leading={<HashIcon className="size-3.5" />}
+					>
+						{channels.map((c) => (
+							<option key={c.id} value={c.id} className="bg-ink">
+								{c.name}
+								{c.is_private ? " (private)" : ""}
+							</option>
+						))}
+					</Select>
 				</label>
 			</div>
 
@@ -581,23 +555,20 @@ function ConnectedGitHubCard({
 			<div className="mt-6">
 				<label className="block">
 					<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Default repository</span>
-					<div className="relative">
-						<GitHubIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-violet-400/50" />
-						<select
-							value={settings.defaultRepoId ?? ""}
-							onChange={(e) => saveField("repo", { defaultRepoId: e.target.value })}
-							disabled={savingField === "repo"}
-							className={`${inputClass} appearance-none pr-8 pl-9`}
-						>
-							{repos.map((r) => (
-								<option key={r.id} value={r.id} className="bg-ink">
-									{r.full_name}
-									{r.private ? " (private)" : ""}
-								</option>
-							))}
-						</select>
-						<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-					</div>
+					<Select
+						value={settings.defaultRepoId ?? ""}
+						onChange={(e) => saveField("repo", { defaultRepoId: e.target.value })}
+						disabled={savingField === "repo"}
+						wrapperClassName="w-full"
+						leading={<GitHubIcon className="size-3.5" />}
+					>
+						{repos.map((r) => (
+							<option key={r.id} value={r.id} className="bg-ink">
+								{r.full_name}
+								{r.private ? " (private)" : ""}
+							</option>
+						))}
+					</Select>
 				</label>
 			</div>
 
@@ -750,40 +721,34 @@ function ConnectedDatadogCard({
 			<div className="mt-6 grid gap-4 sm:grid-cols-2">
 				<label className="block">
 					<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Site</span>
-					<div className="relative">
-						<select
-							value={settings.site}
-							onChange={(e) => saveField("site", { site: e.target.value })}
-							disabled={savingField === "site"}
-							className={`${inputClass} appearance-none pr-8`}
-						>
-							{DATADOG_SITES.map((s) => (
-								<option key={s.id} value={s.id} className="bg-ink">
-									{s.label}
-								</option>
-							))}
-						</select>
-						<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-					</div>
+					<Select
+						value={settings.site}
+						onChange={(e) => saveField("site", { site: e.target.value })}
+						disabled={savingField === "site"}
+						wrapperClassName="w-full"
+					>
+						{DATADOG_SITES.map((s) => (
+							<option key={s.id} value={s.id} className="bg-ink">
+								{s.label}
+							</option>
+						))}
+					</Select>
 				</label>
 				<label className="block">
 					<span className="mb-1.5 block text-xs font-medium text-violet-300/60">Default service</span>
-					<div className="relative">
-						<DatadogIcon className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-violet-400/50" />
-						<select
-							value={settings.defaultService ?? ""}
-							onChange={(e) => saveField("service", { defaultService: e.target.value })}
-							disabled={savingField === "service"}
-							className={`${inputClass} appearance-none pr-8 pl-9`}
-						>
-							{services.map((s) => (
-								<option key={s.id} value={s.name} className="bg-ink">
-									{s.name} ({s.env})
-								</option>
-							))}
-						</select>
-						<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-					</div>
+					<Select
+						value={settings.defaultService ?? ""}
+						onChange={(e) => saveField("service", { defaultService: e.target.value })}
+						disabled={savingField === "service"}
+						wrapperClassName="w-full"
+						leading={<DatadogIcon className="size-3.5" />}
+					>
+						{services.map((s) => (
+							<option key={s.id} value={s.name} className="bg-ink">
+								{s.name} ({s.env})
+							</option>
+						))}
+					</Select>
 				</label>
 			</div>
 
@@ -1037,6 +1002,7 @@ function ConnectedSourceCard({
 
 export function SettingsPage() {
 	const { user, request, applyUser, logout } = useAppAuth();
+	const t = useT();
 	const queryClient = useQueryClient();
 	const [slack, setSlack] = useState<SlackSettings | null>(null);
 	const [channels, setChannels] = useState<SlackChannel[]>([]);
@@ -1049,7 +1015,6 @@ export function SettingsPage() {
 	const [savingField, setSavingField] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
-	const [showEditProfile, setShowEditProfile] = useState(false);
 	const [showDeleteWorkspace, setShowDeleteWorkspace] = useState(false);
 	const [companyNameDraft, setCompanyNameDraft] = useState("");
 	const [domainsDraft, setDomainsDraft] = useState("");
@@ -1063,16 +1028,6 @@ export function SettingsPage() {
 		launchdarkly: true,
 	});
 
-	const browserTimeFormat = detectBrowserTimeFormat();
-	const browserTimezone = detectBrowserTimezone();
-	const resolvedPrefs = resolveDateTimePrefs({
-		timeFormat: company?.timeFormat ?? "auto",
-		timezone: company?.timezone ?? "auto",
-	});
-	const previewStamp = formatAppDateTime(new Date(), resolvedPrefs, {
-		dateStyle: "full",
-		timeStyle: "short",
-	});
 	const isOwner = user?.workspaceRole === "Owner";
 
 	function load() {
@@ -1106,7 +1061,7 @@ export function SettingsPage() {
 	function switchTab(next: SettingsTab) {
 		setTab(next);
 		const url = new URL(window.location.href);
-		if (next === "preferences") url.searchParams.delete("tab");
+		if (next === "integrations") url.searchParams.delete("tab");
 		else url.searchParams.set("tab", next);
 		window.history.replaceState({}, "", `${url.pathname}${url.search}`);
 	}
@@ -1130,19 +1085,6 @@ export function SettingsPage() {
 		} finally {
 			setSavingField(null);
 		}
-	}
-
-	async function handleDisplayCurrencyChange(code: string) {
-		await patchCompany({ displayCurrency: code }, "displayCurrency");
-	}
-
-	async function handleTimeFormatChange(value: string) {
-		if (!isTimeFormatPreference(value)) return;
-		await patchCompany({ timeFormat: value }, "timeFormat");
-	}
-
-	async function handleTimezoneChange(value: string) {
-		await patchCompany({ timezone: value }, "timezone");
 	}
 
 	async function handleSaveCompanyName() {
@@ -1258,24 +1200,25 @@ export function SettingsPage() {
 	return (
 		<div className="h-full overflow-y-auto">
 			<div className="border-b border-violet-500/10 px-6 py-5">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<h1 className="font-display text-xl font-semibold text-violet-50">Settings</h1>
-						<p className="mt-1 text-sm text-violet-300/60">{tabBlurb(tab)}</p>
-					</div>
-					<div className="flex flex-wrap rounded-xl border border-violet-500/15 bg-white/[0.02] p-1">
-						{SETTINGS_TABS.map((item) => (
+				<div>
+					<h1 className="font-display text-xl font-semibold text-violet-50">{t("settings.title")}</h1>
+					<p className="mt-1 text-sm text-violet-300/60">{tabBlurb(tab)}</p>
+				</div>
+
+				<div className="mt-4 flex flex-wrap items-center gap-3">
+					<div className="grid grid-cols-2 gap-1 rounded-xl border border-violet-500/15 bg-white/[0.02] p-1 text-xs font-medium">
+						{SETTINGS_TAB_IDS.map((id) => (
 							<button
-								key={item.id}
+								key={id}
 								type="button"
-								onClick={() => switchTab(item.id)}
-								className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-									tab === item.id
+								onClick={() => switchTab(id)}
+								className={`cursor-pointer rounded-lg px-3 py-2 transition ${
+									tab === id
 										? "bg-violet-500/20 text-violet-50"
 										: "text-violet-300/60 hover:text-violet-100"
 								}`}
 							>
-								{item.label}
+								{t(id === "integrations" ? "settings.tab.integrations" : "settings.tab.workspace")}
 							</button>
 						))}
 					</div>
@@ -1285,27 +1228,6 @@ export function SettingsPage() {
 			<div className="mx-auto max-w-2xl space-y-6 px-6 py-6">
 				{error && <ErrorBanner message={error} />}
 
-				{tab === "preferences" && user && (
-					<button
-						type="button"
-						onClick={() => setShowEditProfile(true)}
-						className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4 text-left transition hover:border-violet-400/40 hover:bg-white/[0.04]"
-					>
-						<UserAvatar name={user.name} avatarUrl={user.avatarUrl} sizeClass="size-10" textClass="text-sm" />
-						<div className="min-w-0 flex-1">
-							<p className="text-sm font-medium text-violet-50">{user.name}</p>
-							<p className="text-xs text-violet-400/50">
-								{user.role} · {user.company}
-							</p>
-						</div>
-						<span className="flex items-center gap-1.5 text-xs font-medium text-violet-400/50 transition group-hover:text-violet-200">
-							<PencilIcon className="size-3.5" />
-							Edit
-						</span>
-					</button>
-				)}
-
-				{showEditProfile && user && <EditProfileModal user={user} onClose={() => setShowEditProfile(false)} />}
 				{showDeleteWorkspace && company && (
 					<DeleteWorkspaceModal
 						companyName={company.companyName}
@@ -1321,154 +1243,6 @@ export function SettingsPage() {
 					<div className="flex justify-center py-16">
 						<SpinnerIcon className="size-5 text-violet-400" />
 					</div>
-				) : tab === "preferences" ? (
-					company && (
-						<section>
-							<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">
-								Display
-							</h2>
-							<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] px-5 py-2">
-								<SettingRow
-									title="Display currency"
-									description="Used for reply costs shown under every Lumantic answer."
-									control={
-										<label className="relative inline-flex shrink-0">
-											<select
-												aria-label="Display currency"
-												value={company.displayCurrency}
-												disabled={savingField === "displayCurrency"}
-												onChange={(e) => handleDisplayCurrencyChange(e.target.value)}
-												className={`${selectClass} min-w-[11rem]`}
-											>
-												{DISPLAY_CURRENCIES.map((c) => (
-													<option key={c.code} value={c.code}>
-														{c.code} · {c.name}
-													</option>
-												))}
-											</select>
-											<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-										</label>
-									}
-								/>
-								<SettingRow
-									title="Time format"
-									description={
-										<>
-											<p>
-												Choose 12-hour or 24-hour clocks, or auto from this browser (
-												{browserTimeFormat === "12h" ? "12-hour" : "24-hour"}).
-											</p>
-											<p className="mt-1.5 text-violet-400/50">
-												Preview: <span className="text-violet-200/80">{previewStamp}</span>
-											</p>
-										</>
-									}
-									control={
-										<label className="relative inline-flex shrink-0">
-											<select
-												aria-label="Time format"
-												value={company.timeFormat}
-												disabled={savingField === "timeFormat"}
-												onChange={(e) => handleTimeFormatChange(e.target.value)}
-												className={`${selectClass} min-w-[11rem]`}
-											>
-												<option value="auto">
-													Auto ({browserTimeFormat === "12h" ? "12-hour" : "24-hour"})
-												</option>
-												<option value="12h">12-hour</option>
-												<option value="24h">24-hour</option>
-											</select>
-											<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-										</label>
-									}
-								/>
-								<SettingRow
-									title="Timezone"
-									description={`Used for timestamps in chat and memories. Auto follows this browser (${browserTimezone}).`}
-									control={
-										<label className="relative inline-flex shrink-0">
-											<select
-												aria-label="Timezone"
-												value={company.timezone}
-												disabled={savingField === "timezone"}
-												onChange={(e) => handleTimezoneChange(e.target.value)}
-												className={`${selectClass} min-w-[14rem] max-w-[16rem]`}
-											>
-												<option value="auto">Auto ({browserTimezone})</option>
-												{TIMEZONE_OPTIONS.map((zone) => (
-													<option key={zone} value={zone}>
-														{zone.replace(/_/g, " ")}
-													</option>
-												))}
-											</select>
-											<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-										</label>
-									}
-								/>
-							</div>
-						</section>
-					)
-				) : tab === "notifications" ? (
-					company && (
-						<section>
-							<h2 className="mb-3 text-sm font-semibold tracking-wide text-violet-300/70 uppercase">
-								Email
-							</h2>
-							<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] px-5 py-2">
-								<SettingRow
-									title="Proposed memories"
-									description="Email when Lumantic surfaces new memories waiting for review."
-									control={
-										<Toggle
-											checked={company.emailProposedMemories}
-											disabled={savingField === "emailProposedMemories"}
-											onChange={(checked) =>
-												patchCompany({ emailProposedMemories: checked }, "emailProposedMemories")
-											}
-										/>
-									}
-								/>
-								<SettingRow
-									title="Daily digest"
-									description="A morning email summarizing chats, memories, and open proposals."
-									control={
-										<Toggle
-											checked={company.emailDailyDigest}
-											disabled={savingField === "emailDailyDigest"}
-											onChange={(checked) =>
-												patchCompany({ emailDailyDigest: checked }, "emailDailyDigest")
-											}
-										/>
-									}
-								/>
-								<SettingRow
-									title="Team invites"
-									description="Email when someone is invited to or joins the workspace."
-									control={
-										<Toggle
-											checked={company.emailTeamInvites}
-											disabled={savingField === "emailTeamInvites"}
-											onChange={(checked) =>
-												patchCompany({ emailTeamInvites: checked }, "emailTeamInvites")
-											}
-										/>
-									}
-								/>
-								<SettingRow
-									title="Billing"
-									description="Receipts, plan changes, and usage alerts."
-									control={
-										<Toggle
-											checked={company.emailBilling}
-											disabled={savingField === "emailBilling"}
-											onChange={(checked) => patchCompany({ emailBilling: checked }, "emailBilling")}
-										/>
-									}
-								/>
-							</div>
-							<p className="mt-3 text-xs text-violet-400/50">Emails go to workspace admins.</p>
-						</section>
-					)
 				) : tab === "workspace" ? (
 					company && (
 						<>

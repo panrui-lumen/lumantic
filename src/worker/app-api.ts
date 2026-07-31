@@ -13,9 +13,20 @@ import {
 	isTimezonePreference,
 	type TimeFormatPreference,
 } from "../shared/datetime";
+import {
+	DEFAULT_UI_LOCALE_PREFERENCE,
+	isUiLocalePreference,
+	type UiLocalePreference,
+} from "../shared/locale";
 import { estimateReplyUsage } from "../shared/usage";
 import { canAccessSettings, isWorkspaceRole, type WorkspaceRole } from "../shared/access";
 import { clampLimit, clampPage, clampPageSize } from "../shared/pagination";
+import { LIVE_WORKSPACE_ID } from "../shared/workspaces";
+import {
+	createAppSessionToken,
+	verifyAppSessionToken,
+	type AppSession,
+} from "./app-session";
 /**
  * API for the /app product experience: a fake (demo-only) login, Slack
  * integration settings, memories + proposed memories, and a simulated
@@ -34,6 +45,14 @@ const DEMO_USER: {
 	avatarUrl: string | null;
 	slackUsername: string | null;
 	workspaceRole: WorkspaceRole;
+	uiLocale: UiLocalePreference;
+	displayCurrency: string;
+	timeFormat: TimeFormatPreference;
+	timezone: string;
+	emailProposedMemories: boolean;
+	emailDailyDigest: boolean;
+	emailTeamInvites: boolean;
+	emailBilling: boolean;
 } = {
 	username: "test@example.com",
 	name: "Avery Chen",
@@ -42,6 +61,14 @@ const DEMO_USER: {
 	avatarUrl: null,
 	slackUsername: null,
 	workspaceRole: "Owner",
+	uiLocale: DEFAULT_UI_LOCALE_PREFERENCE,
+	displayCurrency: DEFAULT_DISPLAY_CURRENCY,
+	timeFormat: DEFAULT_COMPANY_DATETIME.timeFormat,
+	timezone: DEFAULT_COMPANY_DATETIME.timezone,
+	emailProposedMemories: true,
+	emailDailyDigest: false,
+	emailTeamInvites: true,
+	emailBilling: true,
 };
 
 function demoSlackUsername(name: string): string {
@@ -53,10 +80,7 @@ function demoSlackUsername(name: string): string {
 	return first || "avery";
 }
 
-// Demo-only signing secret for session tokens. This gate exists purely to
-// simulate a real login flow — it is not meant to protect real data.
-const SESSION_SECRET = "lumantic-app-demo-secret-v1";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+// Demo-only signing lives in ./app-session (shared with admin impersonation).
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_AVATAR_CHARS = 400_000;
@@ -180,64 +204,11 @@ function timingSafeEqual(a: string, b: string): boolean {
 	return result === 0;
 }
 
-function toBase64Url(bytes: Uint8Array): string {
-	let binary = "";
-	for (const byte of bytes) binary += String.fromCharCode(byte);
-	return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-}
-
-function fromBase64Url(value: string): Uint8Array {
-	const padded = value
-		.replaceAll("-", "+")
-		.replaceAll("_", "/")
-		.padEnd(value.length + ((4 - (value.length % 4)) % 4), "=");
-	const binary = atob(padded);
-	return Uint8Array.from(binary, (c) => c.charCodeAt(0));
-}
-
-async function hmacKey(): Promise<CryptoKey> {
-	return crypto.subtle.importKey(
-		"raw",
-		new TextEncoder().encode(SESSION_SECRET),
-		{ name: "HMAC", hash: "SHA-256" },
-		false,
-		["sign", "verify"],
-	);
-}
-
-async function createSessionToken(username: string): Promise<string> {
-	const payload = JSON.stringify({ u: username, exp: Date.now() + SESSION_TTL_MS });
-	const payloadB64 = toBase64Url(new TextEncoder().encode(payload));
-	const key = await hmacKey();
-	const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payloadB64));
-	return `${payloadB64}.${toBase64Url(new Uint8Array(signature))}`;
-}
-
-async function verifySessionToken(token: string): Promise<{ username: string } | null> {
-	const [payloadB64, sigB64] = token.split(".");
-	if (!payloadB64 || !sigB64) return null;
-	try {
-		const key = await hmacKey();
-		const valid = await crypto.subtle.verify(
-			"HMAC",
-			key,
-			fromBase64Url(sigB64) as BufferSource,
-			new TextEncoder().encode(payloadB64),
-		);
-		if (!valid) return null;
-		const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(payloadB64))) as { u: string; exp: number };
-		if (!payload.u || typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
-		return { username: payload.u };
-	} catch {
-		return null;
-	}
-}
-
-async function requireAppAuth(c: Context<{ Bindings: Env }>): Promise<{ username: string } | null> {
+async function requireAppAuth(c: Context<{ Bindings: Env }>): Promise<AppSession | null> {
 	const header = c.req.header("authorization") ?? "";
 	const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 	if (!token) return null;
-	return verifySessionToken(token);
+	return verifyAppSessionToken(token);
 }
 
 type ProfileRow = {
@@ -246,10 +217,24 @@ type ProfileRow = {
 	company: string;
 	avatar: string | null;
 	slack_username: string | null;
+	ui_locale: string | null;
+	display_currency: string | null;
+	time_format: string | null;
+	timezone: string | null;
+	email_proposed_memories: number | null;
+	email_daily_digest: number | null;
+	email_team_invites: number | null;
+	email_billing: number | null;
 };
 
-async function getWorkspaceRole(env: Env): Promise<WorkspaceRole> {
+async function getWorkspaceRole(env: Env, session?: AppSession | null): Promise<WorkspaceRole> {
 	try {
+		if (session?.memberId != null) {
+			const row = await env.DB.prepare("SELECT role FROM team_members WHERE id = ?")
+				.bind(session.memberId)
+				.first<{ role: string }>();
+			if (row?.role && isWorkspaceRole(row.role)) return row.role;
+		}
 		const row = await env.DB.prepare("SELECT role FROM team_members WHERE is_you = 1 LIMIT 1").first<{
 			role: string;
 		}>();
@@ -260,12 +245,69 @@ async function getWorkspaceRole(env: Env): Promise<WorkspaceRole> {
 	return "Owner";
 }
 
-async function getProfileUser(env: Env): Promise<typeof DEMO_USER> {
+function mapProfilePrefs(row: Partial<ProfileRow> | null | undefined) {
+	const currency = row?.display_currency?.toUpperCase() ?? DEFAULT_DISPLAY_CURRENCY;
+	const timeFormatRaw = row?.time_format ?? DEFAULT_COMPANY_DATETIME.timeFormat;
+	const timezoneRaw = row?.timezone ?? DEFAULT_COMPANY_DATETIME.timezone;
+	const uiLocaleRaw = row?.ui_locale ?? DEFAULT_UI_LOCALE_PREFERENCE;
+	return {
+		uiLocale: (isUiLocalePreference(uiLocaleRaw) ? uiLocaleRaw : DEFAULT_UI_LOCALE_PREFERENCE) as UiLocalePreference,
+		displayCurrency: isDisplayCurrency(currency) ? currency : DEFAULT_DISPLAY_CURRENCY,
+		timeFormat: (isTimeFormatPreference(timeFormatRaw)
+			? timeFormatRaw
+			: DEFAULT_COMPANY_DATETIME.timeFormat) as TimeFormatPreference,
+		timezone: isTimezonePreference(timezoneRaw) ? timezoneRaw : DEFAULT_COMPANY_DATETIME.timezone,
+		emailProposedMemories: row?.email_proposed_memories == null ? true : Boolean(row.email_proposed_memories),
+		emailDailyDigest: Boolean(row?.email_daily_digest),
+		emailTeamInvites: row?.email_team_invites == null ? true : Boolean(row.email_team_invites),
+		emailBilling: row?.email_billing == null ? true : Boolean(row.email_billing),
+	};
+}
+
+type AppUserPayload = typeof DEMO_USER & { impersonating?: boolean };
+
+async function getProfileUser(env: Env, session?: AppSession | null): Promise<AppUserPayload> {
 	try {
+		if (session?.memberId != null) {
+			const member = await env.DB.prepare(
+				`SELECT m.id, m.name, m.email, m.role, m.status, w.name AS workspace_name
+				 FROM team_members m
+				 JOIN workspaces w ON w.id = m.workspace_id
+				 WHERE m.id = ?`,
+			)
+				.bind(session.memberId)
+				.first<{
+					id: number;
+					name: string;
+					email: string;
+					role: string;
+					status: string;
+					workspace_name: string;
+				}>();
+			if (member) {
+				const workspaceRole = isWorkspaceRole(member.role) ? member.role : ("Member" as WorkspaceRole);
+				const prefs = mapProfilePrefs(null);
+				return {
+					username: member.email,
+					name: member.name,
+					role: member.role,
+					company: member.workspace_name,
+					avatarUrl: null,
+					slackUsername: null,
+					workspaceRole,
+					...prefs,
+					impersonating: true,
+				};
+			}
+		}
+
 		const row = await env.DB.prepare(
-			"SELECT name, role, company, avatar, slack_username FROM user_profile WHERE id = 1",
+			`SELECT name, role, company, avatar, slack_username,
+			        ui_locale, display_currency, time_format, timezone,
+			        email_proposed_memories, email_daily_digest, email_team_invites, email_billing
+			 FROM user_profile WHERE id = 1`,
 		).first<ProfileRow>();
-		const workspaceRole = await getWorkspaceRole(env);
+		const workspaceRole = await getWorkspaceRole(env, session);
 		if (!row) return { ...DEMO_USER, workspaceRole };
 		return {
 			username: DEMO_USERNAME,
@@ -275,6 +317,7 @@ async function getProfileUser(env: Env): Promise<typeof DEMO_USER> {
 			avatarUrl: row.avatar || null,
 			slackUsername: row.slack_username || null,
 			workspaceRole,
+			...mapProfilePrefs(row),
 		};
 	} catch (err) {
 		// Local miniflare can briefly lose the D1 handle after migrations or a
@@ -287,7 +330,7 @@ async function getProfileUser(env: Env): Promise<typeof DEMO_USER> {
 async function requireWorkspaceAdmin(c: Context<{ Bindings: Env }>) {
 	const session = await requireAppAuth(c);
 	if (!session) return { error: c.json({ error: "Unauthorized" }, 401) as Response };
-	const role = await getWorkspaceRole(c.env);
+	const role = await getWorkspaceRole(c.env, session);
 	if (!canAccessSettings(role)) {
 		return { error: c.json({ error: "Only workspace admins can change settings." }, 403) as Response };
 	}
@@ -298,6 +341,7 @@ async function getCompanySettings(env: Env): Promise<{
 	displayCurrency: string;
 	timeFormat: TimeFormatPreference;
 	timezone: string;
+	uiLocale: UiLocalePreference;
 	companyName: string;
 	inviteEmailDomains: string[];
 	emailProposedMemories: boolean;
@@ -315,7 +359,7 @@ async function getCompanySettings(env: Env): Promise<{
 
 	try {
 		const row = await env.DB.prepare(
-			`SELECT display_currency, time_format, timezone,
+			`SELECT display_currency, time_format, timezone, ui_locale,
 			        invite_email_domains,
 			        email_proposed_memories, email_daily_digest, email_team_invites, email_billing
 			 FROM company_settings WHERE id = 1`,
@@ -323,6 +367,7 @@ async function getCompanySettings(env: Env): Promise<{
 			display_currency: string;
 			time_format: string | null;
 			timezone: string | null;
+			ui_locale: string | null;
 			invite_email_domains: string | null;
 			email_proposed_memories: number | null;
 			email_daily_digest: number | null;
@@ -332,10 +377,12 @@ async function getCompanySettings(env: Env): Promise<{
 		const code = row?.display_currency?.toUpperCase() ?? DEFAULT_DISPLAY_CURRENCY;
 		const timeFormatRaw = row?.time_format ?? DEFAULT_COMPANY_DATETIME.timeFormat;
 		const timezoneRaw = row?.timezone ?? DEFAULT_COMPANY_DATETIME.timezone;
+		const uiLocaleRaw = row?.ui_locale ?? DEFAULT_UI_LOCALE_PREFERENCE;
 		return {
 			displayCurrency: isDisplayCurrency(code) ? code : DEFAULT_DISPLAY_CURRENCY,
 			timeFormat: isTimeFormatPreference(timeFormatRaw) ? timeFormatRaw : DEFAULT_COMPANY_DATETIME.timeFormat,
 			timezone: isTimezonePreference(timezoneRaw) ? timezoneRaw : DEFAULT_COMPANY_DATETIME.timezone,
+			uiLocale: isUiLocalePreference(uiLocaleRaw) ? uiLocaleRaw : DEFAULT_UI_LOCALE_PREFERENCE,
 			companyName,
 			inviteEmailDomains: parseInviteEmailDomains(row?.invite_email_domains),
 			emailProposedMemories: row?.email_proposed_memories == null ? true : Boolean(row.email_proposed_memories),
@@ -349,6 +396,7 @@ async function getCompanySettings(env: Env): Promise<{
 			displayCurrency: DEFAULT_DISPLAY_CURRENCY,
 			timeFormat: DEFAULT_COMPANY_DATETIME.timeFormat,
 			timezone: DEFAULT_COMPANY_DATETIME.timezone,
+			uiLocale: DEFAULT_UI_LOCALE_PREFERENCE,
 			companyName,
 			inviteEmailDomains: [],
 			emailProposedMemories: true,
@@ -426,13 +474,13 @@ api.post("/login", async (c) => {
 		return c.json({ error: "Incorrect email or password." }, 401);
 	}
 
-	const token = await createSessionToken(DEMO_USER.username);
+	const token = await createAppSessionToken({ username: DEMO_USER.username });
 	return c.json({ ok: true, token, user: await getProfileUser(c.env) });
 });
 
 api.post("/login/slack", async (c) => {
 	// Demo-only: pretend Slack OAuth completed, link Slack identity, issue session.
-	const token = await createSessionToken(DEMO_USER.username);
+	const token = await createAppSessionToken({ username: DEMO_USER.username });
 	const user = await linkDemoSlackIdentity(c.env);
 	return c.json({ ok: true, token, user, provider: "slack" });
 });
@@ -460,7 +508,101 @@ api.post("/register", async (c) => {
 api.get("/session", async (c) => {
 	const session = await requireAppAuth(c);
 	if (!session) return c.json({ error: "Unauthorized" }, 401);
-	return c.json({ user: await getProfileUser(c.env), company: await getCompanySettings(c.env) });
+	return c.json({ user: await getProfileUser(c.env, session), company: await getCompanySettings(c.env) });
+});
+
+/** Local/dev Cmd+K tools only. Refused on non-local hosts. */
+function allowAppDevTools(c: Context<{ Bindings: Env }>): boolean {
+	const host = (c.req.header("host") ?? "").toLowerCase();
+	const hostname = host.split(":")[0] ?? "";
+	return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+api.post("/dev", async (c) => {
+	if (!allowAppDevTools(c)) return c.json({ error: "Dev tools are only available on localhost." }, 404);
+
+	const session = await requireAppAuth(c);
+	if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+	const body = await readJson(c);
+	if (!body) return c.json({ error: "Invalid request body" }, 400);
+
+	const action = typeof body.action === "string" ? body.action : "";
+
+	try {
+		if (action === "setWorkspaceRole") {
+			const role = typeof body.role === "string" ? body.role : "";
+			if (!isWorkspaceRole(role)) return c.json({ error: "Role must be Owner, Admin, or Member." }, 400);
+
+			if (session.memberId != null) {
+				await c.env.DB.prepare("UPDATE team_members SET role = ? WHERE id = ?")
+					.bind(role, session.memberId)
+					.run();
+			} else {
+				await c.env.DB.prepare("UPDATE team_members SET role = ? WHERE is_you = 1").bind(role).run();
+			}
+
+			return c.json({
+				ok: true,
+				action,
+				user: await getProfileUser(c.env, session),
+			});
+		}
+
+		if (action === "setBillingStatus") {
+			const status = typeof body.status === "string" ? body.status : "";
+			if (status !== "active" && status !== "overdue" && status !== "trial" && status !== "canceled") {
+				return c.json({ error: "Unknown billing status." }, 400);
+			}
+
+			const overdueSince = status === "overdue" ? new Date().toISOString() : null;
+			await c.env.DB.prepare(
+				`UPDATE workspaces
+				 SET billing_status = ?, overdue_since = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+				 WHERE id = ?`,
+			)
+				.bind(status, overdueSince, LIVE_WORKSPACE_ID)
+				.run();
+
+			return c.json({
+				ok: true,
+				action,
+				billingStatus: status,
+				overdue: status === "overdue",
+				user: await getProfileUser(c.env, session),
+			});
+		}
+
+		if (action === "setPlan") {
+			const planId = typeof body.planId === "string" ? body.planId : "";
+			if (!(planId in PLAN_CONFIG)) return c.json({ error: "Unknown plan." }, 400);
+
+			await c.env.DB.prepare(
+				"UPDATE billing_plan SET plan_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = 1",
+			)
+				.bind(planId)
+				.run();
+			await c.env.DB.prepare(
+				`UPDATE workspaces
+				 SET plan_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+				 WHERE id = ?`,
+			)
+				.bind(planId, LIVE_WORKSPACE_ID)
+				.run();
+
+			return c.json({
+				ok: true,
+				action,
+				planId,
+				user: await getProfileUser(c.env, session),
+			});
+		}
+
+		return c.json({ error: "Unknown dev action." }, 400);
+	} catch (err) {
+		console.error("Dev tools action failed", err);
+		return c.json({ error: "Something went wrong" }, 500);
+	}
 });
 
 api.get("/company", async (c) => {
@@ -505,6 +647,15 @@ api.put("/company", async (c) => {
 		timezone = next;
 	}
 
+	let uiLocale = current.uiLocale;
+	if (body.uiLocale !== undefined) {
+		const next = typeof body.uiLocale === "string" ? body.uiLocale.trim() : "";
+		if (!isUiLocalePreference(next)) {
+			return c.json({ error: "Pick auto or a supported language." }, 400);
+		}
+		uiLocale = next;
+	}
+
 	let companyName = current.companyName;
 	if (body.companyName !== undefined) {
 		const next = typeof body.companyName === "string" ? body.companyName.trim() : "";
@@ -536,16 +687,17 @@ api.put("/company", async (c) => {
 	try {
 		await c.env.DB.prepare(
 			`INSERT INTO company_settings (
-			   id, display_currency, time_format, timezone,
+			   id, display_currency, time_format, timezone, ui_locale,
 			   invite_email_domains,
 			   email_proposed_memories, email_daily_digest, email_team_invites, email_billing,
 			   updated_at
 			 )
-			 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+			 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 			 ON CONFLICT(id) DO UPDATE SET
 			   display_currency = excluded.display_currency,
 			   time_format = excluded.time_format,
 			   timezone = excluded.timezone,
+			   ui_locale = excluded.ui_locale,
 			   invite_email_domains = excluded.invite_email_domains,
 			   email_proposed_memories = excluded.email_proposed_memories,
 			   email_daily_digest = excluded.email_daily_digest,
@@ -557,6 +709,7 @@ api.put("/company", async (c) => {
 				currency,
 				timeFormat,
 				timezone,
+				uiLocale,
 				JSON.stringify(inviteEmailDomains),
 				emailProposedMemories ? 1 : 0,
 				emailDailyDigest ? 1 : 0,
@@ -577,7 +730,7 @@ api.put("/company", async (c) => {
 
 		return c.json({
 			company: await getCompanySettings(c.env),
-			user: await getProfileUser(c.env),
+			user: await getProfileUser(c.env, auth.session),
 		});
 	} catch (err) {
 		console.error("Failed to update company settings", err);
@@ -622,18 +775,22 @@ api.put("/profile", async (c) => {
 	const body = await readJson(c);
 	if (!body) return c.json({ error: "Invalid request body" }, 400);
 
-	const name = typeof body.name === "string" ? body.name.trim() : "";
-	const role = typeof body.role === "string" ? body.role.trim() : "";
+	const existing = await c.env.DB.prepare(
+		`SELECT name, role, avatar, ui_locale, display_currency, time_format, timezone,
+		        email_proposed_memories, email_daily_digest, email_team_invites, email_billing
+		 FROM user_profile WHERE id = 1`,
+	).first<ProfileRow & { name: string; role: string; avatar: string | null }>();
+
+	const name =
+		typeof body.name === "string" ? body.name.trim() : (existing?.name ?? "");
+	const role =
+		typeof body.role === "string" ? body.role.trim() : (existing?.role ?? "");
 	if (!name) return c.json({ error: "Name can't be empty." }, 400);
 	if (!role) return c.json({ error: "Role can't be empty." }, 400);
 	if (name.length > 80) return c.json({ error: "Name is too long." }, 400);
 	if (role.length > 80) return c.json({ error: "Role is too long." }, 400);
 
-	const existing = await c.env.DB.prepare("SELECT avatar FROM user_profile WHERE id = 1").first<{
-		avatar: string | null;
-	}>();
 	let avatar = existing?.avatar ?? null;
-
 	if (body.avatarUrl === null) {
 		avatar = null;
 	} else if (typeof body.avatarUrl === "string") {
@@ -647,13 +804,62 @@ api.put("/profile", async (c) => {
 		}
 	}
 
+	const prefs = mapProfilePrefs(existing);
+	let uiLocale = prefs.uiLocale;
+	let displayCurrency = prefs.displayCurrency;
+	let timeFormat = prefs.timeFormat;
+	let timezone = prefs.timezone;
+	let emailProposedMemories = prefs.emailProposedMemories;
+	let emailDailyDigest = prefs.emailDailyDigest;
+	let emailTeamInvites = prefs.emailTeamInvites;
+	let emailBilling = prefs.emailBilling;
+
+	if (typeof body.uiLocale === "string") {
+		if (!isUiLocalePreference(body.uiLocale)) return c.json({ error: "Invalid language." }, 400);
+		uiLocale = body.uiLocale;
+	}
+	if (typeof body.displayCurrency === "string") {
+		const code = body.displayCurrency.toUpperCase();
+		if (!isDisplayCurrency(code)) return c.json({ error: "Invalid currency." }, 400);
+		displayCurrency = code;
+	}
+	if (typeof body.timeFormat === "string") {
+		if (!isTimeFormatPreference(body.timeFormat)) return c.json({ error: "Invalid time format." }, 400);
+		timeFormat = body.timeFormat;
+	}
+	if (typeof body.timezone === "string") {
+		if (!isTimezonePreference(body.timezone)) return c.json({ error: "Invalid timezone." }, 400);
+		timezone = body.timezone;
+	}
+	if (typeof body.emailProposedMemories === "boolean") emailProposedMemories = body.emailProposedMemories;
+	if (typeof body.emailDailyDigest === "boolean") emailDailyDigest = body.emailDailyDigest;
+	if (typeof body.emailTeamInvites === "boolean") emailTeamInvites = body.emailTeamInvites;
+	if (typeof body.emailBilling === "boolean") emailBilling = body.emailBilling;
+
 	await c.env.DB.prepare(
-		"UPDATE user_profile SET name = ?, role = ?, avatar = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = 1",
+		`UPDATE user_profile
+		 SET name = ?, role = ?, avatar = ?,
+		     ui_locale = ?, display_currency = ?, time_format = ?, timezone = ?,
+		     email_proposed_memories = ?, email_daily_digest = ?, email_team_invites = ?, email_billing = ?,
+		     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		 WHERE id = 1`,
 	)
-		.bind(name, role, avatar)
+		.bind(
+			name,
+			role,
+			avatar,
+			uiLocale,
+			displayCurrency,
+			timeFormat,
+			timezone,
+			emailProposedMemories ? 1 : 0,
+			emailDailyDigest ? 1 : 0,
+			emailTeamInvites ? 1 : 0,
+			emailBilling ? 1 : 0,
+		)
 		.run();
 
-	return c.json({ user: await getProfileUser(c.env) });
+	return c.json({ user: await getProfileUser(c.env, session) });
 });
 
 api.post("/profile/slack/connect", async (c) => {
@@ -679,7 +885,7 @@ api.post("/profile/slack/disconnect", async (c) => {
 			 SET slack_username = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 			 WHERE id = 1`,
 		).run();
-		return c.json({ ok: true, user: await getProfileUser(c.env) });
+		return c.json({ ok: true, user: await getProfileUser(c.env, session) });
 	} catch (err) {
 		console.error("Failed to disconnect Slack identity", err);
 		return c.json({ error: "Something went wrong" }, 500);
@@ -753,7 +959,7 @@ api.post("/slack/connect", async (c) => {
 	if (auth.error) return auth.error;
 
 	const body = (await readJson(c)) ?? {};
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, auth.session);
 	const workspaceName =
 		typeof body.workspaceName === "string" && body.workspaceName.trim() ? body.workspaceName.trim() : profile.company;
 
@@ -921,7 +1127,7 @@ api.post("/github/connect", async (c) => {
 	if (auth.error) return auth.error;
 
 	const body = (await readJson(c)) ?? {};
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, auth.session);
 	const orgName =
 		typeof body.orgName === "string" && body.orgName.trim()
 			? body.orgName.trim().slice(0, 80)
@@ -1094,7 +1300,7 @@ api.post("/datadog/connect", async (c) => {
 	if (auth.error) return auth.error;
 
 	const body = (await readJson(c)) ?? {};
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, auth.session);
 	const orgName =
 		typeof body.orgName === "string" && body.orgName.trim() ? body.orgName.trim().slice(0, 80) : profile.company;
 	const site = typeof body.site === "string" && DATADOG_SITES.has(body.site) ? body.site : "datadoghq.com";
@@ -1267,7 +1473,7 @@ api.post("/data-sources/:id/connect", async (c) => {
 
 	const id = c.req.param("id");
 	const body = (await readJson(c)) ?? {};
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, auth.session);
 
 	try {
 		const existing = await c.env.DB.prepare("SELECT * FROM data_sources WHERE id = ?").bind(id).first<DataSourceRow>();
@@ -1408,7 +1614,7 @@ api.post("/memories", async (c) => {
 	if (!content) return c.json({ error: "Memory content can't be empty" }, 400);
 
 	try {
-		const profile = await getProfileUser(c.env);
+		const profile = await getProfileUser(c.env, session);
 		const addedBy = source === "ai" || source === "ai-chat" ? "Lumantic" : profile.name;
 		const result = await c.env.DB.prepare(
 			"INSERT INTO memories (content, category, source, added_by) VALUES (?, ?, ?, ?) RETURNING *",
@@ -1531,7 +1737,7 @@ api.post("/proposed-memories/:id/approve", async (c) => {
 		const content = typeof body.content === "string" && body.content.trim() ? body.content.trim() : proposed.content;
 		const category =
 			typeof body.category === "string" && body.category.trim() ? body.category.trim() : proposed.category;
-		const profile = await getProfileUser(c.env);
+		const profile = await getProfileUser(c.env, session);
 
 		const memory = await c.env.DB.prepare(
 			"INSERT INTO memories (content, category, source, added_by) VALUES (?, ?, ?, ?) RETURNING *",
@@ -1874,7 +2080,7 @@ api.post("/conversations", async (c) => {
 
 	const body = await readJson(c);
 	const scope = body?.scope === "global" ? "global" : "personal";
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, session);
 	const authorName = scope === "global" ? profile.name : null;
 
 	try {
@@ -1902,7 +2108,7 @@ api.post("/conversations/import", async (c) => {
 	const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 120) : "Imported chat";
 	const scope = body.scope === "global" ? "global" : "personal";
 	const messages = Array.isArray(body.messages) ? body.messages : [];
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, session);
 	const authorName = scope === "global" ? profile.name : null;
 
 	try {
@@ -2000,7 +2206,7 @@ api.put("/conversations/:id", async (c) => {
 		if (body.scope === "global" || body.scope === "personal") {
 			scope = body.scope;
 			if (scope === "global") {
-				const profile = await getProfileUser(c.env);
+				const profile = await getProfileUser(c.env, session);
 				authorName = profile.name;
 			} else {
 				authorName = null;
@@ -2202,8 +2408,24 @@ api.get("/team", async (c) => {
 	const session = await requireAppAuth(c);
 	if (!session) return c.json({ error: "Unauthorized" }, 401);
 
+	const status = (c.req.query("status") ?? "").trim().toLowerCase();
+	const statusFilter =
+		status === "active" || status === "invited" || status === "disabled" ? status : null;
+
 	try {
-		const rows = await c.env.DB.prepare("SELECT * FROM team_members ORDER BY is_you DESC, created_at ASC").all();
+		const rows = statusFilter
+			? await c.env.DB.prepare(
+					`SELECT * FROM team_members
+					 WHERE workspace_id = 1 AND status = ?
+					 ORDER BY is_you DESC, created_at ASC`,
+				)
+					.bind(statusFilter)
+					.all()
+			: await c.env.DB.prepare(
+					`SELECT * FROM team_members
+					 WHERE workspace_id = 1
+					 ORDER BY is_you DESC, created_at ASC`,
+				).all();
 		return c.json({ members: rows.results });
 	} catch (err) {
 		console.error("Failed to list team members", err);
@@ -2223,11 +2445,13 @@ api.post("/team", async (c) => {
 	if (!email || !EMAIL_RE.test(email)) return c.json({ error: "Please enter a valid email address." }, 400);
 
 	try {
-		const existing = await c.env.DB.prepare("SELECT id FROM team_members WHERE email = ?").bind(email).first();
+		const existing = await c.env.DB.prepare("SELECT id FROM team_members WHERE email = ? OR (workspace_id = 1 AND email = ?)")
+			.bind(email, email)
+			.first();
 		if (existing) return c.json({ error: "That person is already on the team." }, 400);
 
 		const member = await c.env.DB.prepare(
-			"INSERT INTO team_members (name, email, role, status) VALUES (?, ?, ?, 'invited') RETURNING *",
+			"INSERT INTO team_members (workspace_id, name, email, role, status) VALUES (1, ?, ?, ?, 'invited') RETURNING *",
 		)
 			.bind(slugToName(email), email, role)
 			.first();
@@ -2252,14 +2476,20 @@ api.put("/team/:id", async (c) => {
 	if (!TEAM_ROLES.has(role)) return c.json({ error: "Invalid role" }, 400);
 
 	try {
-		const existing = await c.env.DB.prepare("SELECT is_you, role FROM team_members WHERE id = ?").bind(id).first<{
-			is_you: number;
-			role: string;
-		}>();
+		const existing = await c.env.DB.prepare(
+			"SELECT is_you, role FROM team_members WHERE id = ? AND workspace_id = 1",
+		)
+			.bind(id)
+			.first<{
+				is_you: number;
+				role: string;
+			}>();
 		if (!existing) return c.json({ error: "Team member not found" }, 404);
 		if (existing.role === "Owner") return c.json({ error: "The workspace owner's role can't be changed." }, 400);
 
-		const member = await c.env.DB.prepare("UPDATE team_members SET role = ? WHERE id = ? RETURNING *")
+		const member = await c.env.DB.prepare(
+			"UPDATE team_members SET role = ? WHERE id = ? AND workspace_id = 1 RETURNING *",
+		)
 			.bind(role, id)
 			.first();
 		return c.json({ member });
@@ -2277,15 +2507,19 @@ api.delete("/team/:id", async (c) => {
 	if (!Number.isInteger(id)) return c.json({ error: "Invalid id" }, 400);
 
 	try {
-		const existing = await c.env.DB.prepare("SELECT is_you, role FROM team_members WHERE id = ?").bind(id).first<{
-			is_you: number;
-			role: string;
-		}>();
+		const existing = await c.env.DB.prepare(
+			"SELECT is_you, role FROM team_members WHERE id = ? AND workspace_id = 1",
+		)
+			.bind(id)
+			.first<{
+				is_you: number;
+				role: string;
+			}>();
 		if (!existing) return c.json({ error: "Team member not found" }, 404);
 		if (existing.role === "Owner" || existing.is_you)
 			return c.json({ error: "You can't remove the workspace owner." }, 400);
 
-		await c.env.DB.prepare("DELETE FROM team_members WHERE id = ?").bind(id).run();
+		await c.env.DB.prepare("DELETE FROM team_members WHERE id = ? AND workspace_id = 1").bind(id).run();
 		return c.json({ ok: true });
 	} catch (err) {
 		console.error("Failed to remove team member", err);
@@ -2320,19 +2554,20 @@ const PLAN_CONFIG: Record<PlanId, { name: string; priceCents: number | null; sea
 	},
 };
 
-type UsageMetricId = "messages" | "slackPosts" | "memories" | "seats";
+type UsageMetricId = "tokens" | "slackPosts" | "memories" | "seats";
 
 const PLAN_QUOTAS: Record<PlanId, Record<UsageMetricId, number>> = {
-	starter: { messages: 300, slackPosts: 0, memories: 50, seats: 3 },
-	scale: { messages: 1000, slackPosts: 250, memories: 200, seats: 10 },
-	enterprise: { messages: Infinity, slackPosts: Infinity, memories: Infinity, seats: Infinity },
+	starter: { tokens: 300_000, slackPosts: 0, memories: 50, seats: 3 },
+	scale: { tokens: 1_000_000, slackPosts: 250, memories: 200, seats: 10 },
+	enterprise: { tokens: Infinity, slackPosts: Infinity, memories: Infinity, seats: Infinity },
 };
 
-const USAGE_RATES: Record<UsageMetricId, { label: string; unit: string; rateCents: number }> = {
-	messages: { label: "AI chat messages", unit: "message", rateCents: 2 },
-	slackPosts: { label: "Slack posts", unit: "post", rateCents: 5 },
-	memories: { label: "Memories tracked", unit: "memory", rateCents: 10 },
-	seats: { label: "Team seats", unit: "seat", rateCents: 1500 },
+/** rateCents is charged per `ratePer` units of overage (tokens: $0.02 / 1K). */
+const USAGE_RATES: Record<UsageMetricId, { label: string; unit: string; rateCents: number; ratePer: number }> = {
+	tokens: { label: "Tokens consumed", unit: "token", rateCents: 2, ratePer: 1000 },
+	slackPosts: { label: "Slack posts", unit: "post", rateCents: 5, ratePer: 1 },
+	memories: { label: "Memories tracked", unit: "memory", rateCents: 10, ratePer: 1 },
+	seats: { label: "Team seats", unit: "seat", rateCents: 1500, ratePer: 1 },
 };
 
 type BillingPlanRow = {
@@ -2349,15 +2584,21 @@ api.get("/billing", async (c) => {
 	if (!session) return c.json({ error: "Unauthorized" }, 401);
 
 	try {
-		const [planRow, invoicesResult, messagesCount, memoriesCount, seatsCount, usageCounters] = await Promise.all([
+		const [planRow, invoicesResult, tokensUsed, memoriesCount, seatsCount, usageCounters, workspaceBilling] =
+			await Promise.all([
 			c.env.DB.prepare("SELECT * FROM billing_plan WHERE id = 1").first<BillingPlanRow>(),
 			c.env.DB.prepare(
 				"SELECT id, invoice_date, description, amount_cents, status FROM billing_invoices ORDER BY invoice_date DESC",
 			).all(),
-			c.env.DB.prepare("SELECT COUNT(*) as n FROM chat_messages WHERE role = 'user'").first<{ n: number }>(),
+			c.env.DB.prepare(
+				"SELECT COALESCE(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)), 0) as n FROM chat_messages",
+			).first<{ n: number }>(),
 			c.env.DB.prepare("SELECT COUNT(*) as n FROM memories").first<{ n: number }>(),
-			c.env.DB.prepare("SELECT COUNT(*) as n FROM team_members").first<{ n: number }>(),
+			c.env.DB.prepare("SELECT COUNT(*) as n FROM team_members WHERE workspace_id = 1").first<{ n: number }>(),
 			c.env.DB.prepare("SELECT slack_posts FROM usage_counters WHERE id = 1").first<{ slack_posts: number }>(),
+			c.env.DB.prepare("SELECT billing_status FROM workspaces WHERE id = ?")
+				.bind(LIVE_WORKSPACE_ID)
+				.first<{ billing_status: string }>(),
 		]);
 
 		const planId = (planRow?.plan_id as PlanId) ?? "scale";
@@ -2365,7 +2606,7 @@ api.get("/billing", async (c) => {
 		const quotas = PLAN_QUOTAS[planId] ?? PLAN_QUOTAS.scale;
 
 		const used: Record<UsageMetricId, number> = {
-			messages: messagesCount?.n ?? 0,
+			tokens: tokensUsed?.n ?? 0,
 			memories: memoriesCount?.n ?? 0,
 			seats: seatsCount?.n ?? 0,
 			slackPosts: usageCounters?.slack_posts ?? 0,
@@ -2373,21 +2614,24 @@ api.get("/billing", async (c) => {
 
 		const usage = (Object.keys(USAGE_RATES) as UsageMetricId[]).map((id) => {
 			const quota = quotas[id];
+			const rate = USAGE_RATES[id];
 			const unlimited = !Number.isFinite(quota);
 			const overage = unlimited ? 0 : Math.max(0, used[id] - quota);
 			return {
 				id,
-				label: USAGE_RATES[id].label,
-				unit: USAGE_RATES[id].unit,
+				label: rate.label,
+				unit: rate.unit,
 				used: used[id],
 				included: unlimited ? null : quota,
 				overage,
-				rateCents: USAGE_RATES[id].rateCents,
-				costCents: overage * USAGE_RATES[id].rateCents,
+				rateCents: rate.rateCents,
+				ratePer: rate.ratePer,
+				costCents: Math.round((overage / rate.ratePer) * rate.rateCents),
 			};
 		});
 
 		const usageCostCents = usage.reduce((sum, u) => sum + u.costCents, 0);
+		const billingStatus = workspaceBilling?.billing_status ?? "active";
 
 		return c.json({
 			plan: {
@@ -2403,6 +2647,8 @@ api.get("/billing", async (c) => {
 			usage,
 			usageCostCents,
 			estimatedTotalCents: plan.priceCents === null ? null : plan.priceCents + usageCostCents,
+			billingStatus,
+			overdue: billingStatus === "overdue",
 			invoices: invoicesResult.results,
 		});
 	} catch (err) {
@@ -2582,7 +2828,7 @@ api.post("/chat-shares", async (c) => {
 	const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 160) : "Shared chat";
 	const isPublic = body.isPublic === true;
 	const messagesJson = serializeShareMessages(body.messages);
-	const profile = await getProfileUser(c.env);
+	const profile = await getProfileUser(c.env, session);
 
 	if (!conversationId && !fixtureId) {
 		return c.json({ error: "Provide a conversation or fixture to share" }, 400);

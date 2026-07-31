@@ -13,11 +13,8 @@ export function Footer() {
 					<p className="max-w-md text-sm text-violet-300/50">All you need is Lumantic.</p>
 				</div>
 
-				<div className="mt-10 flex flex-col gap-4 border-t border-violet-500/10 pt-6 text-xs text-violet-400/40 sm:flex-row sm:items-center sm:justify-between">
+				<div className="mt-10 border-t border-violet-500/10 pt-6 text-xs text-violet-400/40">
 					<p>© {new Date().getFullYear()} Lumantic.</p>
-					<a href="/status" className="text-violet-300/55 transition hover:text-violet-100">
-						Status
-					</a>
 				</div>
 			</div>
 		</footer>

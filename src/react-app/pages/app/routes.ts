@@ -1,4 +1,12 @@
-export type AppRoute = "chat" | "memories" | "proposed" | "team" | "billing" | "support" | "settings";
+export type AppRoute =
+	| "chat"
+	| "memories"
+	| "proposed"
+	| "team"
+	| "billing"
+	| "support"
+	| "settings"
+	| "account";
 
 export function pathToRoute(pathname: string): AppRoute {
 	if (pathname.startsWith("/app/memories")) return "memories";
@@ -7,6 +15,7 @@ export function pathToRoute(pathname: string): AppRoute {
 	if (pathname.startsWith("/app/billing")) return "billing";
 	if (pathname.startsWith("/app/support")) return "support";
 	if (pathname.startsWith("/app/settings")) return "settings";
+	if (pathname.startsWith("/app/account")) return "account";
 	return "chat";
 }
 
@@ -24,6 +33,8 @@ export function routeToPath(route: AppRoute): string {
 			return "/app/support";
 		case "settings":
 			return "/app/settings";
+		case "account":
+			return "/app/account";
 		case "chat":
 		default:
 			return "/app";

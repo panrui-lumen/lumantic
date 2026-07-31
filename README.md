@@ -30,7 +30,10 @@ Set your local admin password in `.dev.vars` (already gitignored, copy from `.de
 
 ```
 ADMIN_PASSWORD=change-me
+LUMANTIC_SLACK_BOT_TOKEN=xoxb-change-me
 ```
+
+`LUMANTIC_SLACK_BOT_TOKEN` is a Slack bot token (needs the `chat:write` scope) used to post a message to the internal `#waitlist` channel whenever someone registers interest. Leave it blank locally to skip the notification.
 
 Start the development server:
 
@@ -62,10 +65,11 @@ Apply migrations to the remote database (only needed once, or after adding new m
 npx wrangler d1 migrations apply lumantic-db --remote
 ```
 
-Set the production admin password as a secret (do this once):
+Set the production admin password and Slack bot token as secrets (do this once):
 
 ```bash
 npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put LUMANTIC_SLACK_BOT_TOKEN
 ```
 
 Build and deploy:

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { Toaster } from "sonner";
 import { SpinnerIcon } from "../../components/Icons";
 import { AppAuthProvider, useAppAuth } from "./context";
 import { queryClient } from "./queryClient";
 import { TooltipProvider } from "./ui";
+import { AccountPage } from "./AccountPage";
 import { AuthScreen } from "./AuthScreen";
 import { AppShell } from "./AppShell";
 import { ChatPage } from "./ChatPage";
-import { CommandPalette, EDIT_PROFILE_EVENT, LOGOUT_CONFIRM_EVENT, OPEN_CMDK_EVENT } from "./CommandPalette";
+import { CommandPalette, LOGOUT_CONFIRM_EVENT, OPEN_CMDK_EVENT } from "./CommandPalette";
 import { KeyboardShortcutsModal, NAV_SHORTCUTS, OPEN_SHORTCUTS_EVENT, GO_PREFIX_MS, isTypingTarget } from "./KeyboardShortcuts";
 import { MemoriesPage } from "./MemoriesPage";
 import { SettingsPage } from "./SettingsPage";
@@ -18,6 +18,7 @@ import { SupportPage } from "./SupportPage";
 import { pathToRoute, routeToPath, type AppRoute } from "./routes";
 import type { ProposedMemory } from "./types";
 import { canAccessSettings } from "../../../shared/access";
+import { AppI18nProvider, AppLocaleSync } from "./i18n";
 
 function readLocation() {
 	return { pathname: window.location.pathname, search: window.location.search };
@@ -174,7 +175,8 @@ function AuthenticatedApp() {
 	}, [cmdkOpen, shortcutsOpen, navigate, user?.workspaceRole]);
 
 	return (
-		<>
+		<AppLocaleSync>
+			<>
 			<AppShell
 				route={route}
 				onNavigate={handleNavigate}
@@ -197,6 +199,7 @@ function AuthenticatedApp() {
 				{route === "team" && <TeamPage />}
 				{route === "billing" && <BillingPage />}
 				{route === "support" && <SupportPage />}
+				{route === "account" && <AccountPage />}
 				{route === "settings" && isAdmin && <SettingsPage />}
 			</AppShell>
 
@@ -208,7 +211,7 @@ function AuthenticatedApp() {
 					navigate(to);
 					setMobileNavOpen(false);
 				}}
-				onOpenEditProfile={() => window.dispatchEvent(new Event(EDIT_PROFILE_EVENT))}
+				onOpenEditProfile={() => handleNavigate("account")}
 				onRequestLogout={() => window.dispatchEvent(new Event(LOGOUT_CONFIRM_EVENT))}
 				onOpenShortcuts={() => {
 					setCmdkOpen(false);
@@ -220,7 +223,8 @@ function AuthenticatedApp() {
 				onClose={() => setShortcutsOpen(false)}
 				canAccessSettings={isAdmin}
 			/>
-		</>
+			</>
+		</AppLocaleSync>
 	);
 }
 
@@ -245,24 +249,9 @@ export function AppPage() {
 		<QueryClientProvider client={queryClient}>
 			<AppAuthProvider>
 				<TooltipProvider>
-					<AppRouter />
-					<Toaster
-						theme="dark"
-						position="bottom-right"
-						toastOptions={{
-							classNames: {
-								toast:
-									"!rounded-xl !border !border-violet-500/20 !bg-ink !text-violet-50 !shadow-[0_0_40px_-15px_rgba(143,99,248,0.5)] !font-sans",
-								title: "!text-violet-50 !font-medium",
-								description: "!text-violet-300/70",
-								actionButton: "!bg-gradient-to-r !from-violet-500 !to-violet-400 !text-white",
-								cancelButton: "!bg-white/10 !text-violet-200",
-								closeButton: "!border-violet-500/20 !bg-white/5 !text-violet-300",
-								success: "!border-emerald-500/25",
-								error: "!border-rose-500/25",
-							},
-						}}
-					/>
+					<AppI18nProvider>
+						<AppRouter />
+					</AppI18nProvider>
 				</TooltipProvider>
 			</AppAuthProvider>
 		</QueryClientProvider>

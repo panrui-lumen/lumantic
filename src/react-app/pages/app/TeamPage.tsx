@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
-	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
 	MailIcon,
@@ -11,13 +10,14 @@ import {
 	UsersIcon,
 } from "../../components/Icons";
 import { useAppAuth } from "./context";
-import { Modal, PageHeader, Pill, inputClass, selectClass } from "./ui";
+import { DelayedBusyOverlay, Modal, PageHeader, Pill, Select, formatRelative, inputClass } from "./ui";
 import { UserAvatar } from "./UserAvatar";
 import { useSelfAvatar } from "./selfAvatar";
 import { openUserProfile } from "./userProfile";
 
 type Role = "Owner" | "Admin" | "Member";
-type Status = "active" | "invited";
+type Status = "active" | "invited" | "disabled";
+type StatusFilter = "all" | Status;
 
 type TeamMember = {
 	id: number;
@@ -29,21 +29,70 @@ type TeamMember = {
 	isYou?: boolean;
 };
 
+type ApiTeamMember = {
+	id: number;
+	name: string;
+	email: string;
+	role: string;
+	status: string;
+	is_you?: number;
+	last_active_at?: string | null;
+	created_at?: string;
+};
+
 const ROLES: Role[] = ["Admin", "Member"];
 const PAGE_SIZE = 20;
-
-const EXTRA_MEMBERS: Omit<TeamMember, "id">[] = [
-	{ name: "Casey Morgan", email: "casey@beacon.com", role: "Member", status: "active", lastActive: "3h ago" },
-	{ name: "Riley Brooks", email: "riley@beacon.com", role: "Member", status: "active", lastActive: "5h ago" },
-	{ name: "Morgan Patel", email: "morgan@beacon.com", role: "Admin", status: "active", lastActive: "Yesterday" },
-	{ name: "Taylor Kim", email: "taylor@beacon.com", role: "Member", status: "active", lastActive: "2d ago" },
-	{ name: "Quinn Alvarez", email: "quinn@beacon.com", role: "Member", status: "invited", lastActive: "Invited 1d ago" },
-	{ name: "Harper Singh", email: "harper@beacon.com", role: "Member", status: "active", lastActive: "4d ago" },
-	{ name: "Reese Okonkwo", email: "reese@beacon.com", role: "Member", status: "active", lastActive: "5d ago" },
-	{ name: "Drew Nakamura", email: "drew@beacon.com", role: "Member", status: "invited", lastActive: "Invited 6d ago" },
-	{ name: "Jamie Ortega", email: "jamie@beacon.com", role: "Member", status: "active", lastActive: "1w ago" },
-	{ name: "Skyler Chen", email: "skyler@beacon.com", role: "Member", status: "active", lastActive: "1w ago" },
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+	{ id: "all", label: "All" },
+	{ id: "active", label: "Active" },
+	{ id: "invited", label: "Invited" },
+	{ id: "disabled", label: "Disabled" },
 ];
+
+function isRole(value: string): value is Role {
+	return value === "Owner" || value === "Admin" || value === "Member";
+}
+
+function isStatus(value: string): value is Status {
+	return value === "active" || value === "invited" || value === "disabled";
+}
+
+function mapMember(row: ApiTeamMember): TeamMember {
+	const status = isStatus(row.status) ? row.status : "active";
+	const role = isRole(row.role) ? row.role : "Member";
+	let lastActive = "—";
+	if (status === "invited") {
+		if (row.created_at) {
+			const rel = formatRelative(row.created_at);
+			lastActive = rel === "Just now" ? "Invited just now" : `Invited ${rel}`;
+		} else {
+			lastActive = "Invited";
+		}
+	} else if (row.last_active_at) {
+		lastActive = formatRelative(row.last_active_at);
+	}
+	return {
+		id: row.id,
+		name: row.name,
+		email: row.email,
+		role,
+		status,
+		lastActive,
+		isYou: Boolean(row.is_you),
+	};
+}
+
+function statusPillTone(status: Status): "emerald" | "amber" | "violet" {
+	if (status === "active") return "emerald";
+	if (status === "invited") return "amber";
+	return "violet";
+}
+
+function statusLabel(status: Status): string {
+	if (status === "active") return "Active";
+	if (status === "invited") return "Invited";
+	return "Disabled";
+}
 
 type MemberMenuAction = "resend" | "remove";
 
@@ -74,7 +123,7 @@ function MemberOverflowMenu({
 			icon: <MailIcon className="size-3.5" />,
 		});
 	}
-	if (!member.isYou) {
+	if (!member.isYou && member.role !== "Owner") {
 		items.push({
 			action: "remove",
 			label: member.status === "invited" ? "Revoke invite" : "Remove member",
@@ -97,7 +146,7 @@ function MemberOverflowMenu({
 					e.stopPropagation();
 					setOpen((v) => !v);
 				}}
-				className="flex size-8 items-center justify-center rounded-lg text-violet-400/50 transition hover:bg-white/[0.06] hover:text-violet-100"
+				className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-violet-400/50 transition hover:bg-white/[0.06] hover:text-violet-100"
 			>
 				<MoreHorizontalIcon className="size-4" />
 			</button>
@@ -116,7 +165,7 @@ function MemberOverflowMenu({
 								setOpen(false);
 								onAction(item.action);
 							}}
-							className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium transition hover:bg-white/[0.05] ${
+							className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-xs font-medium transition hover:bg-white/[0.05] ${
 								item.tone === "rose" ? "text-rose-300" : "text-violet-100"
 							}`}
 						>
@@ -160,14 +209,14 @@ function RemoveMemberDialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg px-3 py-2 text-sm font-medium text-violet-300/70 transition hover:text-violet-100"
+						className="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-violet-300/70 transition hover:text-violet-100"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="rounded-lg bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/30"
+						className="cursor-pointer rounded-lg bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/30"
 					>
 						{invited ? "Revoke invite" : "Remove member"}
 					</button>
@@ -195,35 +244,35 @@ function InviteForm({ onInvite, onCancel }: { onInvite: (email: string, role: Ro
 						className={`${inputClass} pl-9`}
 					/>
 				</div>
-				<div className="relative">
-					<select
-						value={role}
-						onChange={(e) => setRole(e.target.value as Role)}
-						className={`${selectClass} w-full sm:w-auto`}
-					>
-						{ROLES.map((r) => (
-							<option key={r} value={r} className="bg-ink">
-								{r}
-							</option>
-						))}
-					</select>
-					<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
-				</div>
+				<Select
+					value={role}
+					onChange={(e) => setRole(e.target.value as Role)}
+					wrapperClassName="w-full sm:w-auto"
+					aria-label="Role"
+				>
+					{ROLES.map((r) => (
+						<option key={r} value={r} className="bg-ink">
+							{r}
+						</option>
+					))}
+				</Select>
 				<div className="flex items-center gap-2">
 					<button
+						type="button"
 						onClick={onCancel}
-						className="rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100"
+						className="cursor-pointer rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100"
 					>
 						Cancel
 					</button>
 					<button
+						type="button"
 						onClick={() => {
 							if (!email.trim()) return;
 							onInvite(email.trim(), role);
 							setEmail("");
 						}}
 						disabled={!email.trim()}
-						className="rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+						className="cursor-pointer rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						Send invite
 					</button>
@@ -252,7 +301,7 @@ function MemberRow({
 					type="button"
 					onClick={() => openUserProfile(member.name)}
 					aria-label={`View ${member.name}'s profile`}
-					className="rounded-full transition hover:brightness-110"
+					className="cursor-pointer rounded-full transition hover:brightness-110"
 				>
 					<UserAvatar name={member.name} avatarUrl={avatarUrl} sizeClass="size-9" textClass="text-xs" />
 				</button>
@@ -261,7 +310,7 @@ function MemberRow({
 						<button
 							type="button"
 							onClick={() => openUserProfile(member.name)}
-							className="truncate transition hover:text-violet-50"
+							className="cursor-pointer truncate transition hover:text-violet-50"
 						>
 							{member.name}
 						</button>
@@ -273,9 +322,7 @@ function MemberRow({
 
 			<div className="flex items-center gap-3 sm:contents">
 				<div className="flex sm:justify-start">
-					<Pill tone={member.status === "active" ? "emerald" : "amber"}>
-						{member.status === "active" ? "Active" : "Invited"}
-					</Pill>
+					<Pill tone={statusPillTone(member.status)}>{statusLabel(member.status)}</Pill>
 				</div>
 				<span className="text-xs text-violet-400/50 sm:truncate">{member.lastActive}</span>
 				<div className="flex sm:justify-start">
@@ -284,20 +331,19 @@ function MemberRow({
 							<Pill tone="violet">Owner</Pill>
 						</div>
 					) : (
-						<div className="relative w-full max-w-[6.5rem]">
-							<select
-								value={member.role}
-								onChange={(e) => onChangeRole(member.id, e.target.value as Role)}
-								className={`${selectClass} w-full py-1.5 pr-7 text-xs`}
-							>
-								{ROLES.map((r) => (
-									<option key={r} value={r} className="bg-ink">
-										{r}
-									</option>
-								))}
-							</select>
-							<ChevronDown className="pointer-events-none absolute top-1/2 right-2 size-3 -translate-y-1/2 text-violet-400/50" />
-						</div>
+						<Select
+							value={member.role}
+							onChange={(e) => onChangeRole(member.id, e.target.value as Role)}
+							wrapperClassName="w-full max-w-[6.5rem]"
+							size="sm"
+							aria-label="Role"
+						>
+							{ROLES.map((r) => (
+								<option key={r} value={r} className="bg-ink">
+									{r}
+								</option>
+							))}
+						</Select>
 					)}
 				</div>
 				<div className="flex h-8 w-8 shrink-0 items-center justify-center justify-self-end sm:justify-self-center">
@@ -309,32 +355,40 @@ function MemberRow({
 }
 
 export function TeamPage() {
-	const { user } = useAppAuth();
-	const [members, setMembers] = useState<TeamMember[]>(() => [
-		{
-			id: 1,
-			name: user?.name ?? "Avery Chen",
-			email: "avery@beacon.com",
-			role: "Owner",
-			status: "active",
-			lastActive: "Now",
-			isYou: true,
-		},
-		{ id: 2, name: "Priya Nair", email: "priya@beacon.com", role: "Admin", status: "active", lastActive: "2h ago" },
-		{ id: 3, name: "Sam Rivera", email: "sam@beacon.com", role: "Member", status: "active", lastActive: "1d ago" },
-		{
-			id: 4,
-			name: "Jordan Lee",
-			email: "jordan@beacon.com",
-			role: "Member",
-			status: "invited",
-			lastActive: "Invited 3d ago",
-		},
-		...EXTRA_MEMBERS.map((m, i) => ({ ...m, id: 100 + i })),
-	]);
+	const { request } = useAppAuth();
+	const [members, setMembers] = useState<TeamMember[]>([]);
+	const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState("");
 	const [showInvite, setShowInvite] = useState(false);
 	const [pendingRemove, setPendingRemove] = useState<TeamMember | null>(null);
 	const [page, setPage] = useState(1);
+	const requestIdRef = useRef(0);
+
+	const loadMembers = useCallback(
+		async (filter: StatusFilter) => {
+			const requestId = ++requestIdRef.current;
+			setBusy(true);
+			setError("");
+			try {
+				const params = filter === "all" ? "" : `?status=${encodeURIComponent(filter)}`;
+				const data = await request<{ members: ApiTeamMember[] }>(`/team${params}`);
+				if (requestId !== requestIdRef.current) return;
+				setMembers((data.members ?? []).map(mapMember));
+				setPage(1);
+			} catch (err) {
+				if (requestId !== requestIdRef.current) return;
+				setError(err instanceof Error ? err.message : "Failed to load team members");
+			} finally {
+				if (requestId === requestIdRef.current) setBusy(false);
+			}
+		},
+		[request],
+	);
+
+	useEffect(() => {
+		void loadMembers(statusFilter);
+	}, [statusFilter, loadMembers]);
 
 	const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
 	const safePage = Math.min(page, totalPages);
@@ -347,48 +401,76 @@ export function TeamPage() {
 		setPage(safePage);
 	}
 
-	function handleInvite(email: string, role: Role) {
-		const name = email
-			.split("@")[0]
-			.split(/[._-]/)
-			.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-			.join(" ");
-		setMembers((prev) => [
-			...prev,
-			{ id: Date.now(), name, email, role, status: "invited", lastActive: "Invited just now" },
-		]);
-		setShowInvite(false);
-		setPage(Math.ceil((members.length + 1) / PAGE_SIZE));
+	async function handleInvite(email: string, role: Role) {
+		try {
+			const data = await request<{ member: ApiTeamMember }>("/team", {
+				method: "POST",
+				body: JSON.stringify({ email, role }),
+			});
+			const mapped = mapMember(data.member);
+			if (statusFilter === "all" || statusFilter === mapped.status) {
+				setMembers((prev) => [...prev, mapped]);
+			}
+			setShowInvite(false);
+			toast.success(`Invite sent to ${email}`);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Couldn't send invite");
+		}
 	}
 
-	function handleChangeRole(id: number, role: Role) {
+	async function handleChangeRole(id: number, role: Role) {
+		const previous = members;
 		setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role } : m)));
+		try {
+			await request(`/team/${id}`, { method: "PUT", body: JSON.stringify({ role }) });
+		} catch (err) {
+			setMembers(previous);
+			toast.error(err instanceof Error ? err.message : "Couldn't update role");
+		}
 	}
 
 	function handleMenuAction(member: TeamMember, action: MemberMenuAction) {
 		if (action === "resend") {
-			setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, lastActive: "Invite resent just now" } : m)));
+			setMembers((prev) =>
+				prev.map((m) => (m.id === member.id ? { ...m, lastActive: "Invite resent just now" } : m)),
+			);
 			toast.success(`Invitation link resent to ${member.email}`);
 			return;
 		}
 		if (action === "remove") setPendingRemove(member);
 	}
 
-	function confirmRemove() {
+	async function confirmRemove() {
 		if (!pendingRemove) return;
-		setMembers((prev) => prev.filter((m) => m.id !== pendingRemove.id));
-		toast.success(
-			pendingRemove.status === "invited"
-				? `Invite for ${pendingRemove.email} revoked`
-				: `${pendingRemove.name} removed from the workspace`,
-		);
+		const removing = pendingRemove;
 		setPendingRemove(null);
+		setMembers((prev) => prev.filter((m) => m.id !== removing.id));
+		try {
+			await request(`/team/${removing.id}`, { method: "DELETE" });
+			toast.success(
+				removing.status === "invited"
+					? `Invite for ${removing.email} revoked`
+					: `${removing.name} removed from the workspace`,
+			);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Couldn't remove member");
+			void loadMembers(statusFilter);
+		}
 	}
+
+	const busyMessage =
+		statusFilter === "invited"
+			? "Getting invited users"
+			: statusFilter === "active"
+				? "Getting active users"
+				: statusFilter === "disabled"
+					? "Getting disabled users"
+					: "Getting users";
 
 	return (
 		<div className="flex h-full flex-col">
 			{pendingRemove && (
-				<RemoveMemberDialog member={pendingRemove} onConfirm={confirmRemove} onClose={() => setPendingRemove(null)} />
+				<RemoveMemberDialog member={pendingRemove} onConfirm={() => void confirmRemove()} onClose={() => setPendingRemove(null)} />
 			)}
 
 			<PageHeader
@@ -396,8 +478,9 @@ export function TeamPage() {
 				description="Manage who has access to your Lumantic workspace."
 				action={
 					<button
+						type="button"
 						onClick={() => setShowInvite((v) => !v)}
-						className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+						className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
 					>
 						<PlusIcon className="size-4" />
 						Invite teammate
@@ -406,46 +489,80 @@ export function TeamPage() {
 			/>
 
 			<div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-				{showInvite && <InviteForm onInvite={handleInvite} onCancel={() => setShowInvite(false)} />}
+				{showInvite && <InviteForm onInvite={(email, role) => void handleInvite(email, role)} onCancel={() => setShowInvite(false)} />}
 
-				<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] px-4">
-					<div className="flex items-center gap-2 border-b border-violet-500/10 py-3 text-xs font-medium text-violet-400/50 uppercase">
-						<UsersIcon className="size-3.5" />
-						{members.length} {members.length === 1 ? "member" : "members"}
-					</div>
-					{pageMembers.map((m) => (
-						<MemberRow key={m.id} member={m} onChangeRole={handleChangeRole} onMenuAction={handleMenuAction} />
+				<div className="flex flex-wrap items-center gap-2">
+					{STATUS_FILTERS.map((filter) => (
+						<button
+							key={filter.id}
+							type="button"
+							onClick={() => setStatusFilter(filter.id)}
+							aria-pressed={statusFilter === filter.id}
+							className={`cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+								statusFilter === filter.id
+									? "bg-violet-500/20 text-violet-50"
+									: "text-violet-300/60 hover:bg-white/[0.04] hover:text-violet-100"
+							}`}
+						>
+							{filter.label}
+						</button>
 					))}
-					{members.length > PAGE_SIZE && (
-						<div className="flex items-center justify-between gap-3 border-t border-violet-500/10 py-3 text-sm text-violet-300/60">
-							<p>
-								Showing {rangeStart}-{rangeEnd} of {members.length}
-							</p>
-							<div className="flex items-center gap-2">
-								<span className="hidden text-xs sm:inline">
-									Page {safePage} of {totalPages}
-								</span>
-								<button
-									type="button"
-									onClick={() => setPage((p) => Math.max(1, p - 1))}
-									disabled={safePage <= 1}
-									aria-label="Previous page"
-									className="flex size-9 items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
-								>
-									<ChevronLeft className="size-4" />
-								</button>
-								<button
-									type="button"
-									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-									disabled={safePage >= totalPages}
-									aria-label="Next page"
-									className="flex size-9 items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
-								>
-									<ChevronRight className="size-4" />
-								</button>
-							</div>
+				</div>
+
+				{error && <p className="text-sm text-rose-300">{error}</p>}
+
+				<div className="relative overflow-hidden rounded-2xl border border-violet-500/15 bg-white/[0.02] px-4">
+					<div
+						className={`transition-opacity duration-200 ${busy ? "pointer-events-none opacity-40" : "opacity-100"}`}
+					>
+						<div className="flex items-center gap-2 border-b border-violet-500/10 py-3 text-xs font-medium text-violet-400/50 uppercase">
+							<UsersIcon className="size-3.5" />
+							{members.length} {members.length === 1 ? "member" : "members"}
+							{statusFilter !== "all" ? (
+								<span className="normal-case tracking-normal text-violet-400/40">· {statusLabel(statusFilter)}</span>
+							) : null}
 						</div>
-					)}
+						{pageMembers.length === 0 && !busy ? (
+							<p className="px-1 py-10 text-center text-sm text-violet-400/50">
+								{statusFilter === "all" ? "No team members yet." : `No ${statusLabel(statusFilter).toLowerCase()} members.`}
+							</p>
+						) : (
+							pageMembers.map((m) => (
+								<MemberRow key={m.id} member={m} onChangeRole={handleChangeRole} onMenuAction={handleMenuAction} />
+							))
+						)}
+						{members.length > PAGE_SIZE && (
+							<div className="flex items-center justify-between gap-3 border-t border-violet-500/10 py-3 text-sm text-violet-300/60">
+								<p>
+									Showing {rangeStart}-{rangeEnd} of {members.length}
+								</p>
+								<div className="flex items-center gap-2">
+									<span className="hidden text-xs sm:inline">
+										Page {safePage} of {totalPages}
+									</span>
+									<button
+										type="button"
+										onClick={() => setPage((p) => Math.max(1, p - 1))}
+										disabled={safePage <= 1}
+										aria-label="Previous page"
+										className="flex size-9 cursor-pointer items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+									>
+										<ChevronLeft className="size-4" />
+									</button>
+									<button
+										type="button"
+										onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+										disabled={safePage >= totalPages}
+										aria-label="Next page"
+										className="flex size-9 cursor-pointer items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+									>
+										<ChevronRight className="size-4" />
+									</button>
+								</div>
+							</div>
+						)}
+					</div>
+					<DelayedBusyOverlay busy={busy} message={busyMessage} />
 				</div>
 			</div>
 		</div>

@@ -1,18 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { capture, goToNav, loginAsDemo } from "./helpers";
 
-test.describe("settings notifications and workspace", () => {
-	test("notifications and workspace tabs for admins", async ({ page }, testInfo) => {
+test.describe("workspace settings", () => {
+	test("integrations and workspace tabs for admins", async ({ page }, testInfo) => {
 		const project = testInfo.project.name;
 		await loginAsDemo(page);
-		await goToNav(page, /^Settings/);
-		await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+		await goToNav(page, /Workspace settings|Settings/);
+		await expect(page.getByRole("heading", { name: /Workspace settings|Settings/ })).toBeVisible();
 
-		await page.getByRole("button", { name: "Notifications", exact: true }).click();
-		await expect(page.getByText("Proposed memories")).toBeVisible();
-		await expect(page.getByText("Daily digest")).toBeVisible();
-		await expect(page.getByRole("switch").first()).toBeVisible();
-		await capture(page, project, "settings-notifications");
+		await expect(page.getByRole("button", { name: "Integrations", exact: true })).toBeVisible();
+		await capture(page, project, "settings-integrations");
 
 		await page.getByRole("button", { name: "Workspace", exact: true }).click();
 		await expect(page.getByLabel("Company name")).toBeVisible();

@@ -37,12 +37,6 @@ export function NotFoundPage() {
 					<img src={logo} alt="Lumantic" className="h-7 w-7 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
 					<span className="font-display text-lg font-semibold tracking-tight text-violet-50">Lumantic</span>
 				</a>
-				<a
-					href="/app"
-					className="cursor-pointer rounded-lg border border-violet-500/25 px-3 py-1.5 text-sm font-medium text-violet-200 transition hover:border-violet-400/50 hover:text-violet-50"
-				>
-					Open app
-				</a>
 			</header>
 
 			<main className="relative z-10 mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-center px-6 py-16 text-center">
@@ -58,12 +52,6 @@ export function NotFoundPage() {
 						className="cursor-pointer rounded-lg bg-gradient-to-r from-violet-600 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
 					>
 						Go to homepage
-					</a>
-					<a
-						href="/app"
-						className="cursor-pointer rounded-lg border border-violet-500/25 px-4 py-2.5 text-sm font-medium text-violet-100 transition hover:border-violet-400/50 hover:bg-white/[0.03]"
-					>
-						Go to app
 					</a>
 				</div>
 			</main>

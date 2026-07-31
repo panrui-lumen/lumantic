@@ -8,6 +8,17 @@ export type AppUser = {
 	slackUsername?: string | null;
 	/** Workspace access role from team_members (Owner / Admin / Member). */
 	workspaceRole: "Owner" | "Admin" | "Member";
+	/** True when an admin opened this session via "Log in as". */
+	impersonating?: boolean;
+	/** Account display + email preferences (per user). */
+	uiLocale: "auto" | "en-US" | "en-GB" | "de" | "es" | "fr";
+	displayCurrency: string;
+	timeFormat: "auto" | "12h" | "24h";
+	timezone: string;
+	emailProposedMemories: boolean;
+	emailDailyDigest: boolean;
+	emailTeamInvites: boolean;
+	emailBilling: boolean;
 };
 
 export type SlackChannel = {
@@ -137,6 +148,8 @@ export type CompanySettings = {
 	timeFormat: "auto" | "12h" | "24h";
 	/** `auto` follows the browser; otherwise an IANA timezone id. */
 	timezone: string;
+	/** `auto` follows the browser language; otherwise a supported UI locale. */
+	uiLocale: "auto" | "en-US" | "en-GB" | "de" | "es" | "fr";
 	/** Workspace display name (same as profile company for the demo). */
 	companyName: string;
 	/** Allowed email domains for invites (lowercase, no @). Empty = any domain. */

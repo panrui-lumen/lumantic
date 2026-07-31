@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import {
 	AlertIcon,
 	CheckIcon,
@@ -11,6 +10,10 @@ import {
 	SpinnerIcon,
 	TrashIcon,
 } from "../../components/Icons";
+import {
+	Tooltip as SharedTooltip,
+	TooltipProvider as SharedTooltipProvider,
+} from "../../components/Tooltip";
 import { formatAppDateTime, resolveDateTimePrefs, DEFAULT_COMPANY_DATETIME } from "../../../shared/datetime";
 import { useResolvedDateTimePrefs } from "./companySettings";
 
@@ -127,11 +130,7 @@ export function ListPagination({
 }
 
 export function TooltipProvider({ children }: { children: ReactNode }) {
-	return (
-		<TooltipPrimitive.Provider delayDuration={250} skipDelayDuration={100}>
-			{children}
-		</TooltipPrimitive.Provider>
-	);
+	return <SharedTooltipProvider>{children}</SharedTooltipProvider>;
 }
 
 export function Tooltip({
@@ -144,19 +143,9 @@ export function Tooltip({
 	side?: "top" | "bottom" | "left" | "right";
 }) {
 	return (
-		<TooltipPrimitive.Root>
-			<TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-			<TooltipPrimitive.Portal>
-				<TooltipPrimitive.Content
-					side={side}
-					sideOffset={6}
-					className="z-50 rounded-lg border border-violet-500/25 bg-ink px-2.5 py-1.5 text-xs font-medium text-violet-100 shadow-lg data-[state=delayed-open]:animate-rise"
-				>
-					{content}
-					<TooltipPrimitive.Arrow className="fill-violet-500/25" />
-				</TooltipPrimitive.Content>
-			</TooltipPrimitive.Portal>
-		</TooltipPrimitive.Root>
+		<SharedTooltip content={content} side={side}>
+			{children}
+		</SharedTooltip>
 	);
 }
 
@@ -362,10 +351,13 @@ export function SettingRow({
 	title,
 	description,
 	control,
+	status,
 }: {
 	title: string;
 	description: ReactNode;
 	control: ReactNode;
+	/** Optional muted status (e.g. Saving… / Saved) shown left of the control. */
+	status?: ReactNode;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-4 py-3.5">
@@ -373,13 +365,19 @@ export function SettingRow({
 				<p className="text-sm font-medium text-violet-100">{title}</p>
 				<div className="mt-0.5 text-xs text-violet-300/50">{description}</div>
 			</div>
-			{control}
+			<div className="flex shrink-0 items-center gap-2.5">
+				{status}
+				{control}
+			</div>
 		</div>
 	);
 }
 
 export const selectClass =
 	"cursor-pointer appearance-none rounded-lg border border-violet-500/20 bg-white/[0.03] py-2 pr-8 pl-3 text-sm text-violet-100 outline-none transition focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed";
+
+/** @deprecated Prefer `Select` from `../../components/Select` so the caret stays right-aligned. */
+export { Select } from "../../components/Select";
 
 export const inputClass =
 	"w-full rounded-lg border border-violet-500/20 bg-white/[0.03] px-3 py-2 text-sm text-violet-50 outline-none transition placeholder:text-violet-400/40 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/20";
@@ -391,6 +389,41 @@ export function Shimmer({ className = "" }: { className?: string }) {
 	return (
 		<div className={`relative overflow-hidden rounded-md bg-violet-500/10 ${className}`} aria-hidden>
 			<div className="animate-shimmer absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-violet-200/15 to-transparent [animation:shimmer_1.2s_infinite]" />
+		</div>
+	);
+}
+
+/** Spinner overlay that only appears after `delayMs` while `busy` stays true. */
+export function DelayedBusyOverlay({
+	busy,
+	message,
+	delayMs = 1000,
+}: {
+	busy: boolean;
+	message: string;
+	delayMs?: number;
+}) {
+	const [show, setShow] = useState(false);
+
+	useEffect(() => {
+		if (!busy) {
+			setShow(false);
+			return;
+		}
+		const timer = window.setTimeout(() => setShow(true), delayMs);
+		return () => window.clearTimeout(timer);
+	}, [busy, delayMs]);
+
+	if (!busy || !show) return null;
+
+	return (
+		<div
+			className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2.5 rounded-[inherit] bg-void/55 backdrop-blur-[1px]"
+			role="status"
+			aria-live="polite"
+		>
+			<SpinnerIcon className="size-5 text-violet-300" />
+			<p className="text-sm font-medium text-violet-100/90">{message}</p>
 		</div>
 	);
 }

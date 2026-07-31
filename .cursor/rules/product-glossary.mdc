@@ -1,0 +1,22 @@
+---
+description: Product terminology — use Lumantic (not "the AI") and docs/glossary.md
+alwaysApply: true
+---
+
+# Product glossary
+
+When writing or editing **user-facing product copy** (app UI, FAQs, empty states, settings descriptions, help text, README product descriptions), follow [`docs/glossary.md`](docs/glossary.md).
+
+## Hard rule
+
+Never describe the in-product agent as **"the AI"**, **"the bot"**, **"the assistant"**, or **"Lumantic AI"**. Say **Lumantic**.
+
+Examples:
+- "New things Lumantic picked up…"
+- "Ask Lumantic anything"
+- "Learned by Lumantic"
+- "Let Lumantic query this source…"
+
+Marketing category language (for example "AI-native" on the landing page) is fine. Generated Cloudflare type comments and similar third-party docs are out of scope.
+
+When you introduce a new user-facing concept, add it to `docs/glossary.md` in the same change.

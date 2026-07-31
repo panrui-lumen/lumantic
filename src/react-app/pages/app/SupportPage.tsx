@@ -5,15 +5,15 @@ import { PageHeader, Pill, inputClass, textareaClass } from "./ui";
 const FAQS = [
 	{
 		q: "How does Lumantic decide what to propose as a memory?",
-		a: "The AI watches chats and connected data sources for facts, definitions, and gotchas that come up more than once, then drops them in Proposed Memories for your team to confirm before they're treated as ground truth.",
+		a: "Lumantic watches chats and connected data sources for facts, definitions, and gotchas that come up more than once, then drops them in Proposed Memories for your team to confirm before they're treated as ground truth.",
 	},
 	{
 		q: "What happens when I deny a proposed memory?",
-		a: "It's removed immediately and never saved. Denying doesn't stop the AI from proposing something similar again later if it keeps seeing evidence for it.",
+		a: "It's removed immediately and never saved. Denying doesn't stop Lumantic from proposing something similar again later if it keeps seeing evidence for it.",
 	},
 	{
 		q: "Can I disconnect Slack without losing my memories?",
-		a: "Yes — disconnecting Slack only stops future posts to your workspace. Nothing in your Memories or Proposed Memories library is affected.",
+		a: "Yes. Disconnecting Slack only stops future posts to your workspace. Nothing in your Memories or Proposed Memories library is affected.",
 	},
 	{
 		q: "Can I export my memories?",
@@ -31,7 +31,10 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 	const [open, setOpen] = useState(false);
 	return (
 		<div className="border-b border-violet-500/10 last:border-0">
-			<button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 py-3.5 text-left">
+			<button
+				onClick={() => setOpen((v) => !v)}
+				className="flex w-full items-center justify-between gap-4 py-3.5 text-left"
+			>
 				<span className="text-sm font-medium text-violet-100">{q}</span>
 				<ChevronDown className={`size-4 shrink-0 text-violet-400/50 transition ${open ? "rotate-180" : ""}`} />
 			</button>
@@ -94,13 +97,21 @@ export function SupportPage() {
 								</span>
 								<p className="font-medium text-violet-100">Message sent</p>
 								<p className="max-w-xs text-sm text-violet-300/60">We'll get back to you within one business day.</p>
-								<button onClick={() => setSent(false)} className="mt-2 text-sm font-medium text-violet-300 hover:text-violet-100">
+								<button
+									onClick={() => setSent(false)}
+									className="mt-2 text-sm font-medium text-violet-300 hover:text-violet-100"
+								>
 									Send another message
 								</button>
 							</div>
 						) : (
 							<form onSubmit={handleSubmit} className="flex flex-col gap-3">
-								<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className={inputClass} />
+								<input
+									value={subject}
+									onChange={(e) => setSubject(e.target.value)}
+									placeholder="Subject"
+									className={inputClass}
+								/>
 								<textarea
 									value={message}
 									onChange={(e) => setMessage(e.target.value)}
@@ -129,7 +140,10 @@ export function SupportPage() {
 					</h2>
 					<div className="overflow-hidden rounded-2xl border border-violet-500/15 bg-white/[0.02]">
 						{TICKETS.map((t) => (
-							<div key={t.id} className="flex items-center justify-between gap-4 border-b border-violet-500/10 px-5 py-3.5 last:border-0">
+							<div
+								key={t.id}
+								className="flex items-center justify-between gap-4 border-b border-violet-500/10 px-5 py-3.5 last:border-0"
+							>
 								<div className="min-w-0">
 									<p className="truncate text-sm text-violet-100">{t.subject}</p>
 									<p className="text-xs text-violet-400/50">

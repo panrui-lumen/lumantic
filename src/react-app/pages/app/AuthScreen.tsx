@@ -1,7 +1,17 @@
 import { useState } from "react";
 import logo from "../../assets/lumantic-logo.png";
-import { AlertIcon, ArrowRight, LockIcon, MailIcon, SparkleIcon, SpinnerIcon, UserIcon } from "../../components/Icons";
+import {
+	AlertIcon,
+	ArrowRight,
+	LockIcon,
+	MailIcon,
+	SlackIcon,
+	SparkleIcon,
+	SpinnerIcon,
+	UserIcon,
+} from "../../components/Icons";
 import { ApiError, useAppAuth } from "./context";
+import { Tooltip } from "./ui";
 
 type Tab = "login" | "register";
 
@@ -38,52 +48,80 @@ function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="flex flex-col gap-4">
-			<FieldShell icon={<MailIcon className="size-4" />}>
-				<input
-					value={username}
-					onChange={(e) => setUsername(e.target.value)}
-					placeholder="Email"
-					type="email"
-					autoFocus
-					autoComplete="username"
-					className={inputClass}
-				/>
-			</FieldShell>
-			<FieldShell icon={<LockIcon className="size-4" />}>
-				<input
-					type="password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					placeholder="Password"
-					autoComplete="current-password"
-					className={inputClass}
-				/>
-			</FieldShell>
+		<div className="flex flex-col gap-4">
+			<Tooltip content="Coming soon">
+				<span className="block w-full">
+					<button
+						type="button"
+						aria-disabled="true"
+						onClick={(e) => e.preventDefault()}
+						className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white px-5 py-3 text-sm font-semibold text-[#1D1C1D] transition hover:bg-white/95"
+					>
+						<SlackIcon className="size-5" />
+						Sign in with Slack
+					</button>
+				</span>
+			</Tooltip>
 
-			{error && (
-				<p className="flex items-center gap-1.5 text-sm text-rose-300">
-					<AlertIcon className="size-4 shrink-0" />
-					{error}
-				</p>
-			)}
+			<div className="flex items-center gap-3">
+				<span className="h-px flex-1 bg-violet-500/20" />
+				<span className="text-[11px] font-medium tracking-wide text-violet-400/45 uppercase">or</span>
+				<span className="h-px flex-1 bg-violet-500/20" />
+			</div>
 
-			<button
-				type="submit"
-				disabled={loading || !username || !password}
-				className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-			>
-				{loading && <SpinnerIcon className="size-4" />}
-				{loading ? "Signing in…" : "Sign in"}
-			</button>
+			<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+				<FieldShell icon={<MailIcon className="size-4" />}>
+					<input
+						value={username}
+						onChange={(e) => setUsername(e.target.value)}
+						placeholder="Email"
+						type="email"
+						autoFocus
+						autoComplete="username"
+						className={inputClass}
+						disabled={loading}
+					/>
+				</FieldShell>
+				<FieldShell icon={<LockIcon className="size-4" />}>
+					<input
+						type="password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						placeholder="Password"
+						autoComplete="current-password"
+						className={inputClass}
+						disabled={loading}
+					/>
+				</FieldShell>
 
-			<p className="text-center text-xs text-violet-400/50">
-				No account?{" "}
-				<button type="button" onClick={onSwitchToRegister} className="font-medium text-violet-300 hover:text-violet-100">
-					Request access
+				{error && (
+					<p className="flex items-center gap-1.5 text-sm text-rose-300">
+						<AlertIcon className="size-4 shrink-0" />
+						{error}
+					</p>
+				)}
+
+				<button
+					type="submit"
+					disabled={loading || !username || !password}
+					className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{loading && <SpinnerIcon className="size-4" />}
+					{loading ? "Signing in…" : "Sign in"}
 				</button>
-			</p>
-		</form>
+
+				<p className="text-center text-xs text-violet-400/50">
+					No account?{" "}
+					<button
+						type="button"
+						onClick={onSwitchToRegister}
+						className="font-medium text-violet-300 hover:text-violet-100"
+					>
+						Request access
+					</button>
+				</p>
+			</form>
+		</div>
 	);
 }
 
@@ -142,7 +180,13 @@ function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
 	return (
 		<form onSubmit={handleSubmit} className="flex flex-col gap-4">
 			<FieldShell icon={<UserIcon className="size-4" />}>
-				<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoFocus className={inputClass} />
+				<input
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					placeholder="Full name"
+					autoFocus
+					className={inputClass}
+				/>
 			</FieldShell>
 			<FieldShell icon={<MailIcon className="size-4" />}>
 				<input
@@ -154,7 +198,12 @@ function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
 				/>
 			</FieldShell>
 			<FieldShell icon={<SparkleIcon className="size-4" />}>
-				<input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Company" className={inputClass} />
+				<input
+					value={company}
+					onChange={(e) => setCompany(e.target.value)}
+					placeholder="Company"
+					className={inputClass}
+				/>
 			</FieldShell>
 			<FieldShell icon={<LockIcon className="size-4" />}>
 				<input
@@ -197,16 +246,18 @@ export function AuthScreen() {
 
 	return (
 		<div className="bg-grid relative flex min-h-screen items-center justify-center bg-void px-4 py-10">
-			<div className="animate-pulse-glow pointer-events-none fixed top-1/2 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/15 blur-[120px]" />
+			<div className="pointer-events-none fixed top-1/2 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 -translate-y-1/2 animate-pulse-glow rounded-full bg-violet-600/15 blur-[120px]" />
 
 			<div className="relative w-full max-w-sm rounded-2xl border border-violet-500/20 bg-ink p-8 shadow-[0_0_80px_-15px_rgba(143,99,248,0.4)]">
 				<div className="flex flex-col items-center text-center">
 					<img src={logo} alt="Lumantic" className="h-10 w-10 drop-shadow-[0_0_16px_rgba(184,148,255,0.6)]" />
-					<h1 className="font-display mt-4 text-lg font-semibold text-violet-50">
+					<h1 className="mt-4 font-display text-lg font-semibold text-violet-50">
 						{tab === "login" ? "Welcome back" : "Request access"}
 					</h1>
 					<p className="mt-1 text-sm text-violet-300/60">
-						{tab === "login" ? "Sign in to your Lumantic workspace." : "Lumantic is invite-only during our private beta."}
+						{tab === "login"
+							? "Sign in to your Lumantic workspace."
+							: "Lumantic is invite-only during our private beta."}
 					</p>
 				</div>
 

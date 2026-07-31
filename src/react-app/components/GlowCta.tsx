@@ -13,7 +13,9 @@ export function GlowCta({
 	rounded?: string;
 }) {
 	return (
-		<span className={`glow-cta relative z-0 cursor-pointer ${fullWidth ? "flex w-full" : "inline-flex"} ${rounded} ${className}`}>
+		<span
+			className={`glow-cta relative z-0 cursor-pointer ${fullWidth ? "flex w-full" : "inline-flex"} ${rounded} ${className}`}
+		>
 			{children}
 		</span>
 	);

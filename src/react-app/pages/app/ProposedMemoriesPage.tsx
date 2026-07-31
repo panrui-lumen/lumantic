@@ -2,16 +2,19 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, ChevronDown, InboxIcon, PencilIcon, SpinnerIcon } from "../../components/Icons";
 import { useAppAuth } from "./context";
-import { CategoryPill, ConfirmDeleteButton, EmptyState, ErrorBanner, selectClass, textareaClass } from "./ui";
+import {
+	CategoryPill,
+	ConfirmDeleteButton,
+	EmptyState,
+	ErrorBanner,
+	ListPagination,
+	selectClass,
+	textareaClass,
+} from "./ui";
 import { MEMORY_CATEGORIES, type ProposedMemory } from "./types";
+import { formatWithPrefs, useResolvedDateTimePrefs } from "./companySettings";
 
-function formatDate(iso: string) {
-	try {
-		return new Date(iso.endsWith("Z") ? iso : `${iso}Z`).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-	} catch {
-		return iso;
-	}
-}
+const PAGE_SIZE = 5;
 
 function ProposedCard({
 	item,
@@ -26,6 +29,11 @@ function ProposedCard({
 	const [content, setContent] = useState(item.content);
 	const [category, setCategory] = useState(item.category);
 	const [busy, setBusy] = useState(false);
+	const dateTimePrefs = useResolvedDateTimePrefs();
+	const proposedLabel = formatWithPrefs(item.created_at, dateTimePrefs, {
+		dateStyle: "medium",
+		timeStyle: "short",
+	});
 
 	if (editing) {
 		return (
@@ -84,7 +92,7 @@ function ProposedCard({
 					{Math.round(item.confidence * 100)}% confidence
 				</span>
 				<span>·</span>
-				<span>Proposed {formatDate(item.created_at)}</span>
+				<span>Proposed {proposedLabel || item.created_at}</span>
 			</div>
 			<div className="mt-4 flex items-center gap-2">
 				<button
@@ -123,13 +131,25 @@ export function ProposedMemoriesList() {
 	const [items, setItems] = useState<ProposedMemory[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [page, setPage] = useState(1);
 
 	useEffect(() => {
 		request<{ proposedMemories: ProposedMemory[] }>("/proposed-memories")
-			.then((data) => setItems(data.proposedMemories))
+			.then((data) => {
+				setItems(data.proposedMemories);
+				setPage(1);
+			})
 			.catch((err) => setError(err instanceof Error ? err.message : "Failed to load proposed memories"))
 			.finally(() => setLoading(false));
 	}, [request]);
+
+	const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+	const safePage = Math.min(page, totalPages);
+	const pageItems = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+	if (page !== safePage) {
+		setPage(safePage);
+	}
 
 	function refreshBadge() {
 		void queryClient.invalidateQueries({ queryKey: ["proposed-memories"] });
@@ -166,16 +186,23 @@ export function ProposedMemoriesList() {
 			<EmptyState
 				icon={<InboxIcon className="size-5" />}
 				title="Nothing to review"
-				description="When the AI notices something new worth remembering, it'll show up here for your approval."
+				description="When Lumantic notices something new worth remembering, it'll show up here for your approval."
 			/>
 		);
 	}
 
 	return (
 		<div className="space-y-3">
-			{items.map((item) => (
+			{pageItems.map((item) => (
 				<ProposedCard key={item.id} item={item} onApprove={handleApprove} onDeny={handleDeny} />
 			))}
+			<ListPagination
+				page={safePage}
+				pageSize={PAGE_SIZE}
+				total={items.length}
+				onPageChange={setPage}
+				className="pt-2"
+			/>
 		</div>
 	);
 }
@@ -186,7 +213,7 @@ export function ProposedMemoriesPage() {
 			<div className="border-b border-violet-500/10 px-6 py-5">
 				<h1 className="font-display text-xl font-semibold text-violet-50">Proposed memories</h1>
 				<p className="mt-1 text-sm text-violet-300/60">
-					New things the AI picked up from chats and data. Approve to save them, edit first, or deny to discard.
+					New things Lumantic picked up from chats and data. Approve to save them, edit first, or deny to discard.
 				</p>
 			</div>
 			<div className="flex-1 overflow-y-auto px-6 py-5">

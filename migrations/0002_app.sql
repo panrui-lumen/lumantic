@@ -1,5 +1,5 @@
 -- Tables backing the /app product experience (Slack integration, memories,
--- proposed memories, and the AI chat).
+-- proposed memories, and chat).
 
 CREATE TABLE IF NOT EXISTS slack_settings (
 	id INTEGER PRIMARY KEY CHECK (id = 1),

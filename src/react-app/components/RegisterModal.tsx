@@ -71,10 +71,10 @@ export function RegisterModal({ open, onClose }: { open: boolean; onClose: () =>
 			<button
 				aria-label="Close"
 				onClick={handleClose}
-				className="absolute inset-0 bg-void/80 backdrop-blur-sm animate-[rise_0.3s_ease-out]"
+				className="absolute inset-0 animate-[rise_0.3s_ease-out] bg-void/80 backdrop-blur-sm"
 			/>
 
-			<div className="animate-rise relative w-full max-w-md overflow-hidden rounded-2xl border border-violet-500/25 bg-ink shadow-[0_0_80px_-10px_rgba(143,99,248,0.5)]">
+			<div className="relative w-full max-w-md animate-rise overflow-hidden rounded-2xl border border-violet-500/25 bg-ink shadow-[0_0_80px_-10px_rgba(143,99,248,0.5)]">
 				<div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-violet-500/30 blur-[70px]" />
 
 				<button
@@ -110,7 +110,10 @@ export function RegisterModal({ open, onClose }: { open: boolean; onClose: () =>
 							</p>
 
 							<form onSubmit={handleSubmit} className="mt-6">
-								<label htmlFor="register-email" className="mb-2 block text-xs font-medium tracking-wide text-violet-300/80 uppercase">
+								<label
+									htmlFor="register-email"
+									className="mb-2 block text-xs font-medium tracking-wide text-violet-300/80 uppercase"
+								>
 									Email
 								</label>
 								<input
@@ -122,7 +125,7 @@ export function RegisterModal({ open, onClose }: { open: boolean; onClose: () =>
 									value={email}
 									onChange={(e) => setEmail(e.target.value)}
 									placeholder="you@email.com"
-									className="w-full rounded-xl border border-violet-500/25 bg-white/[0.03] px-4 py-3 text-sm text-violet-50 placeholder:text-violet-300/40 outline-none transition focus:border-violet-400/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-violet-500/25"
+									className="w-full rounded-xl border border-violet-500/25 bg-white/[0.03] px-4 py-3 text-sm text-violet-50 transition outline-none placeholder:text-violet-300/40 focus:border-violet-400/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-violet-500/25"
 								/>
 
 								{status === "error" && <p className="mt-2 text-sm text-rose-300">{errorMessage}</p>}

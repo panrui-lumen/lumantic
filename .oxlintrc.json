@@ -1,0 +1,74 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react", "import", "jest"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "warn"
+	},
+	"settings": {
+		"react": {
+			"version": "19.0"
+		}
+	},
+	"rules": {
+		"react/react-compiler": "error",
+		"react/react-in-jsx-scope": "off",
+		"react/rules-of-hooks": "error",
+		"react/exhaustive-deps": "warn",
+		"import/no-unassigned-import": [
+			"error",
+			{
+				"allow": ["**/*.css", "**/*.scss", "**/*.sass", "**/*.less"]
+			}
+		],
+		"eslint/no-unused-vars": [
+			"error",
+			{
+				"argsIgnorePattern": "^_",
+				"varsIgnorePattern": "^_",
+				"caughtErrorsIgnorePattern": "^_"
+			}
+		]
+	},
+	"ignorePatterns": [
+		"dist/**",
+		".wrangler/**",
+		"coverage/**",
+		"test-results/**",
+		"playwright-report/**",
+		"blob-report/**",
+		"playwright/.cache/**",
+		"worker-configuration.d.ts",
+		"node_modules/**"
+	],
+	"env": {
+		"builtin": true
+	},
+	"overrides": [
+		{
+			"files": ["src/react-app/**/*.{ts,tsx}"],
+			"env": {
+				"browser": true
+			}
+		},
+		{
+			"files": [
+				"src/worker/**/*.{ts,tsx}",
+				"vite.config.ts",
+				"playwright.config.ts",
+				"e2e/**/*.{ts,tsx}",
+				"scripts/**/*.{ts,js,mjs,cjs}",
+				"jest.config.cjs"
+			],
+			"env": {
+				"node": true
+			}
+		},
+		{
+			"files": ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
+			"env": {
+				"jest": true
+			}
+		}
+	]
+}

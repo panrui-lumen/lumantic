@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { AppUser } from "./types";
+import { setSelfAvatar } from "./selfAvatar";
 
 const TOKEN_KEY = "lumantic_app_token";
 
@@ -15,9 +16,15 @@ type AppAuthContextValue = {
 	user: AppUser | null;
 	checkingSession: boolean;
 	login: (username: string, password: string) => Promise<void>;
+	loginWithSlack: () => Promise<void>;
 	logout: () => void;
 	request: <T>(path: string, init?: RequestInit) => Promise<T>;
-	updateProfile: (fields: { name: string; role: string }) => Promise<void>;
+	updateProfile: (fields: { name: string; role: string; avatarUrl?: string | null }) => Promise<void>;
+	connectSlackIdentity: () => Promise<void>;
+	disconnectSlackIdentity: () => Promise<void>;
+	deleteAccount: (confirmation: string) => Promise<void>;
+	/** Replace the signed-in user after workspace/company mutations. */
+	applyUser: (user: AppUser) => void;
 };
 
 const AppAuthContext = createContext<AppAuthContextValue | null>(null);
@@ -25,6 +32,10 @@ const AppAuthContext = createContext<AppAuthContextValue | null>(null);
 export function AppAuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<AppUser | null>(null);
 	const [checkingSession, setCheckingSession] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
+
+	useEffect(() => {
+		setSelfAvatar({ name: user?.name ?? null, avatarUrl: user?.avatarUrl ?? null });
+	}, [user]);
 
 	const logout = useCallback(() => {
 		localStorage.removeItem(TOKEN_KEY);
@@ -65,7 +76,12 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ username, password }),
 		});
-		const data = (await res.json().catch(() => null)) as { ok?: boolean; token?: string; user?: AppUser; error?: string } | null;
+		const data = (await res.json().catch(() => null)) as {
+			ok?: boolean;
+			token?: string;
+			user?: AppUser;
+			error?: string;
+		} | null;
 		if (!res.ok || !data?.ok || !data.token || !data.user) {
 			throw new ApiError(data?.error ?? "Incorrect email or password.", res.status);
 		}
@@ -73,13 +89,53 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
 		setUser(data.user);
 	}, []);
 
+	const loginWithSlack = useCallback(async () => {
+		const res = await fetch("/api/app/login/slack", { method: "POST" });
+		const data = (await res.json().catch(() => null)) as {
+			ok?: boolean;
+			token?: string;
+			user?: AppUser;
+			error?: string;
+		} | null;
+		if (!res.ok || !data?.ok || !data.token || !data.user) {
+			throw new ApiError(data?.error ?? "Couldn't sign in with Slack. Please try again.", res.status);
+		}
+		localStorage.setItem(TOKEN_KEY, data.token);
+		setUser(data.user);
+	}, []);
+
 	const updateProfile = useCallback(
-		async (fields: { name: string; role: string }) => {
+		async (fields: { name: string; role: string; avatarUrl?: string | null }) => {
 			const data = await request<{ user: AppUser }>("/profile", { method: "PUT", body: JSON.stringify(fields) });
 			setUser(data.user);
 		},
 		[request],
 	);
+
+	const connectSlackIdentity = useCallback(async () => {
+		const data = await request<{ user: AppUser }>("/profile/slack/connect", { method: "POST" });
+		setUser(data.user);
+	}, [request]);
+
+	const disconnectSlackIdentity = useCallback(async () => {
+		const data = await request<{ user: AppUser }>("/profile/slack/disconnect", { method: "POST" });
+		setUser(data.user);
+	}, [request]);
+
+	const deleteAccount = useCallback(
+		async (confirmation: string) => {
+			await request<{ ok: boolean }>("/account/delete", {
+				method: "POST",
+				body: JSON.stringify({ confirmation }),
+			});
+			logout();
+		},
+		[request, logout],
+	);
+
+	const applyUser = useCallback((next: AppUser) => {
+		setUser(next);
+	}, []);
 
 	useEffect(() => {
 		const token = localStorage.getItem(TOKEN_KEY);
@@ -100,7 +156,21 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	return (
-		<AppAuthContext.Provider value={{ user, checkingSession, login, logout, request, updateProfile }}>
+		<AppAuthContext.Provider
+			value={{
+				user,
+				checkingSession,
+				login,
+				loginWithSlack,
+				logout,
+				request,
+				updateProfile,
+				connectSlackIdentity,
+				disconnectSlackIdentity,
+				deleteAccount,
+				applyUser,
+			}}
+		>
 			{children}
 		</AppAuthContext.Provider>
 	);

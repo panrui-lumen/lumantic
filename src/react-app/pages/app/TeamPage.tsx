@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ChevronDown, MailIcon, MoreHorizontalIcon, PlusIcon, TrashIcon, UsersIcon } from "../../components/Icons";
+import {
+	ChevronDown,
+	ChevronLeft,
+	ChevronRight,
+	MailIcon,
+	MoreHorizontalIcon,
+	PlusIcon,
+	TrashIcon,
+	UsersIcon,
+} from "../../components/Icons";
 import { useAppAuth } from "./context";
 import { Modal, PageHeader, Pill, inputClass, selectClass } from "./ui";
+import { UserAvatar } from "./UserAvatar";
+import { useSelfAvatar } from "./selfAvatar";
+import { openUserProfile } from "./userProfile";
 
 type Role = "Owner" | "Admin" | "Member";
 type Status = "active" | "invited";
@@ -18,16 +30,20 @@ type TeamMember = {
 };
 
 const ROLES: Role[] = ["Admin", "Member"];
+const PAGE_SIZE = 20;
 
-function initials(name: string) {
-	return name
-		.split(" ")
-		.map((p) => p[0])
-		.filter(Boolean)
-		.slice(0, 2)
-		.join("")
-		.toUpperCase();
-}
+const EXTRA_MEMBERS: Omit<TeamMember, "id">[] = [
+	{ name: "Casey Morgan", email: "casey@beacon.com", role: "Member", status: "active", lastActive: "3h ago" },
+	{ name: "Riley Brooks", email: "riley@beacon.com", role: "Member", status: "active", lastActive: "5h ago" },
+	{ name: "Morgan Patel", email: "morgan@beacon.com", role: "Admin", status: "active", lastActive: "Yesterday" },
+	{ name: "Taylor Kim", email: "taylor@beacon.com", role: "Member", status: "active", lastActive: "2d ago" },
+	{ name: "Quinn Alvarez", email: "quinn@beacon.com", role: "Member", status: "invited", lastActive: "Invited 1d ago" },
+	{ name: "Harper Singh", email: "harper@beacon.com", role: "Member", status: "active", lastActive: "4d ago" },
+	{ name: "Reese Okonkwo", email: "reese@beacon.com", role: "Member", status: "active", lastActive: "5d ago" },
+	{ name: "Drew Nakamura", email: "drew@beacon.com", role: "Member", status: "invited", lastActive: "Invited 6d ago" },
+	{ name: "Jamie Ortega", email: "jamie@beacon.com", role: "Member", status: "active", lastActive: "1w ago" },
+	{ name: "Skyler Chen", email: "skyler@beacon.com", role: "Member", status: "active", lastActive: "1w ago" },
+];
 
 type MemberMenuAction = "resend" | "remove";
 
@@ -130,13 +146,13 @@ function RemoveMemberDialog({
 				<p className="text-sm leading-relaxed text-violet-200/80">
 					{invited ? (
 						<>
-							<strong className="font-semibold text-violet-50">{member.name}</strong> ({member.email}) will no longer be able to join with
-							their invite link.
+							<strong className="font-semibold text-violet-50">{member.name}</strong> ({member.email}) will no longer be
+							able to join with their invite link.
 						</>
 					) : (
 						<>
-							<strong className="font-semibold text-violet-50">{member.name}</strong> ({member.email}) will lose access to this Beacon
-							workspace immediately.
+							<strong className="font-semibold text-violet-50">{member.name}</strong> ({member.email}) will lose access
+							to this Beacon workspace immediately.
 						</>
 					)}
 				</p>
@@ -180,7 +196,11 @@ function InviteForm({ onInvite, onCancel }: { onInvite: (email: string, role: Ro
 					/>
 				</div>
 				<div className="relative">
-					<select value={role} onChange={(e) => setRole(e.target.value as Role)} className={`${selectClass} w-full sm:w-auto`}>
+					<select
+						value={role}
+						onChange={(e) => setRole(e.target.value as Role)}
+						className={`${selectClass} w-full sm:w-auto`}
+					>
 						{ROLES.map((r) => (
 							<option key={r} value={r} className="bg-ink">
 								{r}
@@ -190,7 +210,10 @@ function InviteForm({ onInvite, onCancel }: { onInvite: (email: string, role: Ro
 					<ChevronDown className="pointer-events-none absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 text-violet-400/50" />
 				</div>
 				<div className="flex items-center gap-2">
-					<button onClick={onCancel} className="rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100">
+					<button
+						onClick={onCancel}
+						className="rounded-lg px-3 py-2 text-sm font-medium text-violet-300/60 hover:text-violet-100"
+					>
 						Cancel
 					</button>
 					<button
@@ -219,15 +242,29 @@ function MemberRow({
 	onChangeRole: (id: number, role: Role) => void;
 	onMenuAction: (member: TeamMember, action: MemberMenuAction) => void;
 }) {
+	const self = useSelfAvatar();
+	const avatarUrl = member.isYou ? self.avatarUrl : null;
+
 	return (
 		<div className="grid grid-cols-1 gap-3 border-b border-violet-500/10 px-1 py-4 last:border-0 sm:grid-cols-[minmax(0,1fr)_5.5rem_7rem_6.5rem_2rem] sm:items-center sm:gap-3">
 			<div className="flex min-w-0 items-center gap-3">
-				<span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-700 text-xs font-semibold text-white">
-					{initials(member.name)}
-				</span>
+				<button
+					type="button"
+					onClick={() => openUserProfile(member.name)}
+					aria-label={`View ${member.name}'s profile`}
+					className="rounded-full transition hover:brightness-110"
+				>
+					<UserAvatar name={member.name} avatarUrl={avatarUrl} sizeClass="size-9" textClass="text-xs" />
+				</button>
 				<div className="min-w-0 flex-1">
 					<p className="flex min-w-0 items-center gap-2 text-sm font-medium text-violet-100">
-						<span className="truncate">{member.name}</span>
+						<button
+							type="button"
+							onClick={() => openUserProfile(member.name)}
+							className="truncate transition hover:text-violet-50"
+						>
+							{member.name}
+						</button>
 						{member.isYou && <Pill tone="violet">You</Pill>}
 					</p>
 					<p className="truncate text-xs text-violet-400/50">{member.email}</p>
@@ -236,7 +273,9 @@ function MemberRow({
 
 			<div className="flex items-center gap-3 sm:contents">
 				<div className="flex sm:justify-start">
-					<Pill tone={member.status === "active" ? "emerald" : "amber"}>{member.status === "active" ? "Active" : "Invited"}</Pill>
+					<Pill tone={member.status === "active" ? "emerald" : "amber"}>
+						{member.status === "active" ? "Active" : "Invited"}
+					</Pill>
 				</div>
 				<span className="text-xs text-violet-400/50 sm:truncate">{member.lastActive}</span>
 				<div className="flex sm:justify-start">
@@ -272,13 +311,41 @@ function MemberRow({
 export function TeamPage() {
 	const { user } = useAppAuth();
 	const [members, setMembers] = useState<TeamMember[]>(() => [
-		{ id: 1, name: user?.name ?? "Avery Chen", email: "avery@beacon.com", role: "Owner", status: "active", lastActive: "Now", isYou: true },
+		{
+			id: 1,
+			name: user?.name ?? "Avery Chen",
+			email: "avery@beacon.com",
+			role: "Owner",
+			status: "active",
+			lastActive: "Now",
+			isYou: true,
+		},
 		{ id: 2, name: "Priya Nair", email: "priya@beacon.com", role: "Admin", status: "active", lastActive: "2h ago" },
 		{ id: 3, name: "Sam Rivera", email: "sam@beacon.com", role: "Member", status: "active", lastActive: "1d ago" },
-		{ id: 4, name: "Jordan Lee", email: "jordan@beacon.com", role: "Member", status: "invited", lastActive: "Invited 3d ago" },
+		{
+			id: 4,
+			name: "Jordan Lee",
+			email: "jordan@beacon.com",
+			role: "Member",
+			status: "invited",
+			lastActive: "Invited 3d ago",
+		},
+		...EXTRA_MEMBERS.map((m, i) => ({ ...m, id: 100 + i })),
 	]);
 	const [showInvite, setShowInvite] = useState(false);
 	const [pendingRemove, setPendingRemove] = useState<TeamMember | null>(null);
+	const [page, setPage] = useState(1);
+
+	const totalPages = Math.max(1, Math.ceil(members.length / PAGE_SIZE));
+	const safePage = Math.min(page, totalPages);
+	const pageStart = (safePage - 1) * PAGE_SIZE;
+	const pageMembers = members.slice(pageStart, pageStart + PAGE_SIZE);
+	const rangeStart = members.length === 0 ? 0 : pageStart + 1;
+	const rangeEnd = Math.min(safePage * PAGE_SIZE, members.length);
+
+	if (page !== safePage) {
+		setPage(safePage);
+	}
 
 	function handleInvite(email: string, role: Role) {
 		const name = email
@@ -286,8 +353,12 @@ export function TeamPage() {
 			.split(/[._-]/)
 			.map((p) => p.charAt(0).toUpperCase() + p.slice(1))
 			.join(" ");
-		setMembers((prev) => [...prev, { id: Date.now(), name, email, role, status: "invited", lastActive: "Invited just now" }]);
+		setMembers((prev) => [
+			...prev,
+			{ id: Date.now(), name, email, role, status: "invited", lastActive: "Invited just now" },
+		]);
 		setShowInvite(false);
+		setPage(Math.ceil((members.length + 1) / PAGE_SIZE));
 	}
 
 	function handleChangeRole(id: number, role: Role) {
@@ -342,9 +413,39 @@ export function TeamPage() {
 						<UsersIcon className="size-3.5" />
 						{members.length} {members.length === 1 ? "member" : "members"}
 					</div>
-					{members.map((m) => (
+					{pageMembers.map((m) => (
 						<MemberRow key={m.id} member={m} onChangeRole={handleChangeRole} onMenuAction={handleMenuAction} />
 					))}
+					{members.length > PAGE_SIZE && (
+						<div className="flex items-center justify-between gap-3 border-t border-violet-500/10 py-3 text-sm text-violet-300/60">
+							<p>
+								Showing {rangeStart}-{rangeEnd} of {members.length}
+							</p>
+							<div className="flex items-center gap-2">
+								<span className="hidden text-xs sm:inline">
+									Page {safePage} of {totalPages}
+								</span>
+								<button
+									type="button"
+									onClick={() => setPage((p) => Math.max(1, p - 1))}
+									disabled={safePage <= 1}
+									aria-label="Previous page"
+									className="flex size-9 items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+								>
+									<ChevronLeft className="size-4" />
+								</button>
+								<button
+									type="button"
+									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+									disabled={safePage >= totalPages}
+									aria-label="Next page"
+									className="flex size-9 items-center justify-center rounded-lg border border-violet-500/20 transition hover:border-violet-400/40 hover:text-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+								>
+									<ChevronRight className="size-4" />
+								</button>
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

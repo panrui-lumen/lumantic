@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { CheckIcon, CreditCardIcon, DownloadIcon, SparkleIcon } from "../../components/Icons";
-import { PageHeader, Pill, inputClass } from "./ui";
+import { ListPagination, PageHeader, Pill, Tooltip, inputClass } from "./ui";
 
 type PlanId = "starter" | "scale" | "enterprise";
 
+const PAGE_SIZE = 5;
+
 const PLANS: { id: PlanId; name: string; price: string; seats: string; features: string[] }[] = [
-	{ id: "starter", name: "Starter", price: "$99/mo", seats: "Up to 3 seats", features: ["AI chat", "Memory library", "Email digests"] },
+	{
+		id: "starter",
+		name: "Starter",
+		price: "$99/mo",
+		seats: "Up to 3 seats",
+		features: ["AI chat", "Memory library", "Email digests"],
+	},
 	{
 		id: "scale",
 		name: "Scale",
@@ -23,10 +31,18 @@ const PLANS: { id: PlanId; name: string; price: string; seats: string; features:
 ];
 
 const INVOICES = [
-	{ id: 1, date: "Jul 1, 2026", description: "Scale plan — monthly", amount: "$499.00", status: "Paid" },
-	{ id: 2, date: "Jun 1, 2026", description: "Scale plan — monthly", amount: "$499.00", status: "Paid" },
-	{ id: 3, date: "May 1, 2026", description: "Scale plan — monthly", amount: "$499.00", status: "Paid" },
-	{ id: 4, date: "Apr 1, 2026", description: "Starter → Scale proration", amount: "$212.40", status: "Paid" },
+	{ id: 1, date: "Jul 1, 2026", description: "Scale plan - monthly", amount: "$499.00", status: "Paid" },
+	{ id: 2, date: "Jun 1, 2026", description: "Scale plan - monthly", amount: "$499.00", status: "Paid" },
+	{ id: 3, date: "May 1, 2026", description: "Scale plan - monthly", amount: "$499.00", status: "Paid" },
+	{ id: 4, date: "Apr 1, 2026", description: "Starter to Scale proration", amount: "$212.40", status: "Paid" },
+	{ id: 5, date: "Mar 1, 2026", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 6, date: "Feb 1, 2026", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 7, date: "Jan 1, 2026", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 8, date: "Dec 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 9, date: "Nov 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 10, date: "Oct 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 11, date: "Sep 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
+	{ id: 12, date: "Aug 1, 2025", description: "Starter plan - monthly", amount: "$99.00", status: "Paid" },
 ];
 
 type UsageMetricId = "messages" | "slackPosts" | "memories" | "seats";
@@ -50,7 +66,15 @@ function currency(amount: number) {
 	return `$${amount.toFixed(2)}`;
 }
 
-function PlanPicker({ currentPlan, onSelect, onClose }: { currentPlan: PlanId; onSelect: (id: PlanId) => void; onClose: () => void }) {
+function PlanPicker({
+	currentPlan,
+	onSelect,
+	onClose,
+}: {
+	currentPlan: PlanId;
+	onSelect: (id: PlanId) => void;
+	onClose: () => void;
+}) {
 	return (
 		<div className="rounded-2xl border border-violet-500/20 bg-white/[0.03] p-4">
 			<div className="grid gap-3 sm:grid-cols-3">
@@ -132,6 +156,7 @@ export function BillingPage() {
 	const [showPlanPicker, setShowPlanPicker] = useState(false);
 	const [showPaymentForm, setShowPaymentForm] = useState(false);
 	const [paymentSaved, setPaymentSaved] = useState(false);
+	const [invoicePage, setInvoicePage] = useState(1);
 
 	const plan = PLANS.find((p) => p.id === planId)!;
 	const quotas = PLAN_QUOTAS[planId];
@@ -144,6 +169,13 @@ export function BillingPage() {
 	}, 0);
 	const estimatedTotal = basePrice === null ? null : basePrice + usageCost;
 
+	const totalInvoicePages = Math.max(1, Math.ceil(INVOICES.length / PAGE_SIZE));
+	const safeInvoicePage = Math.min(invoicePage, totalInvoicePages);
+	if (invoicePage !== safeInvoicePage) {
+		setInvoicePage(safeInvoicePage);
+	}
+	const pageInvoices = INVOICES.slice((safeInvoicePage - 1) * PAGE_SIZE, safeInvoicePage * PAGE_SIZE);
+
 	return (
 		<div className="h-full overflow-y-auto">
 			<PageHeader title="Billing" description="Manage your plan, payment method, and invoices." />
@@ -151,7 +183,9 @@ export function BillingPage() {
 			<div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
 				<div className="grid gap-3 sm:grid-cols-3">
 					<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4">
-						<p className="font-display text-2xl font-semibold text-violet-50">{basePrice === null ? "Custom" : currency(basePrice)}</p>
+						<p className="font-display text-2xl font-semibold text-violet-50">
+							{basePrice === null ? "Custom" : currency(basePrice)}
+						</p>
 						<p className="mt-1 text-xs text-violet-400/50">Plan cost this cycle</p>
 					</div>
 					<div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4">
@@ -161,7 +195,9 @@ export function BillingPage() {
 						<p className="mt-1 text-xs text-violet-400/50">Usage charges this cycle</p>
 					</div>
 					<div className="rounded-2xl border border-violet-400/30 bg-violet-500/10 p-4">
-						<p className="font-display text-2xl font-semibold text-violet-50">{estimatedTotal === null ? "Contact sales" : currency(estimatedTotal)}</p>
+						<p className="font-display text-2xl font-semibold text-violet-50">
+							{estimatedTotal === null ? "Contact sales" : currency(estimatedTotal)}
+						</p>
 						<p className="mt-1 text-xs text-violet-300/60">Estimated total · due Aug 30</p>
 					</div>
 				</div>
@@ -197,9 +233,9 @@ export function BillingPage() {
 					) : (
 						<div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-violet-500/15 bg-white/[0.02] p-6">
 							<div className="flex items-center gap-3">
-							<span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 text-white">
-								<SparkleIcon className="size-5" />
-							</span>
+								<span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 text-white">
+									<SparkleIcon className="size-5" />
+								</span>
 								<div>
 									<p className="flex items-center gap-2 font-medium text-violet-50">
 										{plan.name} plan <Pill tone="violet">{plan.price}</Pill>
@@ -281,11 +317,11 @@ export function BillingPage() {
 									<th className="px-5 py-3 font-medium">Description</th>
 									<th className="px-5 py-3 font-medium">Amount</th>
 									<th className="px-5 py-3 font-medium">Status</th>
-									<th className="px-5 py-3 font-medium text-right">Invoice</th>
+									<th className="px-5 py-3 text-right font-medium">Invoice</th>
 								</tr>
 							</thead>
 							<tbody>
-								{INVOICES.map((inv) => (
+								{pageInvoices.map((inv) => (
 									<tr key={inv.id} className="border-b border-violet-500/5 last:border-0">
 										<td className="px-5 py-3 font-mono text-xs text-violet-300/60">{inv.date}</td>
 										<td className="px-5 py-3 text-violet-100">{inv.description}</td>
@@ -294,19 +330,27 @@ export function BillingPage() {
 											<Pill tone="emerald">{inv.status}</Pill>
 										</td>
 										<td className="px-5 py-3 text-right">
-											<button
-												aria-label="Download invoice"
-												title="Download invoice"
-												className="inline-flex size-8 items-center justify-center rounded-full text-violet-300/70 transition hover:bg-violet-500/15 hover:text-violet-100"
-											>
-												<DownloadIcon className="size-4" />
-											</button>
+											<Tooltip content="Download invoice">
+												<button
+													aria-label="Download invoice"
+													className="inline-flex size-8 items-center justify-center rounded-full text-violet-300/70 transition hover:bg-violet-500/15 hover:text-violet-100"
+												>
+													<DownloadIcon className="size-4" />
+												</button>
+											</Tooltip>
 										</td>
 									</tr>
 								))}
 							</tbody>
 						</table>
 					</div>
+					<ListPagination
+						page={safeInvoicePage}
+						pageSize={PAGE_SIZE}
+						total={INVOICES.length}
+						onPageChange={setInvoicePage}
+						className="pt-3"
+					/>
 				</section>
 			</div>
 		</div>

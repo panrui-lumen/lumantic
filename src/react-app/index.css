@@ -86,6 +86,18 @@
 		transform: translateY(600%);
 	}
 }
+
+@keyframes shimmer {
+	100% {
+		transform: translateX(100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-shimmer {
+		animation: none !important;
+	}
+}
 @property --glow-angle {
 	syntax: "<angle>";
 	initial-value: 0deg;
@@ -145,6 +157,67 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
+/* Clickable affordance: pointer on hover for interactive controls (Tailwind preflight uses default). */
+@layer base {
+	button:not(:disabled),
+	[role="button"]:not([aria-disabled="true"]),
+	a[href],
+	summary,
+	select:not(:disabled),
+	input[type="button"]:not(:disabled),
+	input[type="submit"]:not(:disabled),
+	input[type="reset"]:not(:disabled),
+	input[type="checkbox"]:not(:disabled),
+	input[type="radio"]:not(:disabled),
+	input[type="file"]:not(:disabled),
+	input[type="range"]:not(:disabled),
+	label[for],
+	label:has(:is(input, select, textarea, button)) {
+		cursor: pointer;
+	}
+
+	button:disabled,
+	[aria-disabled="true"],
+	select:disabled,
+	input:disabled,
+	textarea:disabled {
+		cursor: not-allowed;
+	}
+
+	/* Subtle physical key look for real keyboard shortcuts */
+	kbd {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.4em;
+		padding: 0.12em 0.42em;
+		font-family: ui-sans-serif, system-ui, sans-serif;
+		font-size: 0.6875rem;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+		line-height: 1.25;
+		letter-spacing: 0.02em;
+		color: color-mix(in oklab, var(--color-violet-200) 88%, white);
+		background:
+			linear-gradient(
+				180deg,
+				color-mix(in oklab, white 9%, transparent) 0%,
+				color-mix(in oklab, white 2%, transparent) 100%
+			),
+			color-mix(in oklab, var(--color-violet-950) 55%, black);
+		border: 1px solid color-mix(in oklab, var(--color-violet-400) 28%, transparent);
+		border-bottom-color: color-mix(in oklab, var(--color-violet-900) 80%, black);
+		border-radius: 0.35rem;
+		box-shadow:
+			inset 0 1px 0 color-mix(in oklab, white 12%, transparent),
+			inset 0 -1.5px 0 color-mix(in oklab, black 35%, transparent),
+			0 1px 0 color-mix(in oklab, black 25%, transparent);
+		vertical-align: middle;
+		white-space: nowrap;
+		user-select: none;
+	}
+}
+
 ::selection {
 	background: var(--color-violet-500);
 	color: white;
@@ -185,4 +258,64 @@ body {
 .reveal.is-visible {
 	opacity: 1;
 	transform: translateY(0);
+}
+
+/* highlight.js tokens on Lumantic dark chat surfaces */
+.hljs {
+	color: #e8deff;
+	background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+	color: #7c6aa8;
+	font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-addition {
+	color: #c4a5ff;
+}
+.hljs-number,
+.hljs-string,
+.hljs-meta .hljs-meta-string,
+.hljs-literal,
+.hljs-doctag,
+.hljs-regexp {
+	color: #9ad4ff;
+}
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+	color: #f0e9ff;
+}
+.hljs-attribute,
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-class .hljs-title,
+.hljs-type {
+	color: #fbbf24;
+}
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+	color: #86efac;
+}
+.hljs-built_in,
+.hljs-builtin-name {
+	color: #fda4af;
+}
+.hljs-meta {
+	color: #b894ff;
+}
+.hljs-deletion {
+	color: #fb7185;
+}
+.hljs-emphasis {
+	font-style: italic;
+}
+.hljs-strong {
+	font-weight: 700;
 }

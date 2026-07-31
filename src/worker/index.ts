@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { renderLandingPageHtml } from "./ssr";
 import appApi from "./app-api";
+import { buildStatusReport, recordScheduledStatusSample } from "./status";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -23,16 +24,24 @@ app.get("/", async (c) => {
 	const siteUrl = new URL(c.req.url).origin;
 	const appHtml = renderLandingPageHtml();
 
-	const html = template.replaceAll(SITE_URL_PLACEHOLDER, siteUrl).replace(APP_ROOT_PLACEHOLDER, `<div id="root">${appHtml}</div>`);
+	const html = template
+		.replaceAll(SITE_URL_PLACEHOLDER, siteUrl)
+		.replace(APP_ROOT_PLACEHOLDER, `<div id="root">${appHtml}</div>`);
 
 	return c.html(html);
 });
 
 app.get("/robots.txt", (c) => {
 	const siteUrl = new URL(c.req.url).origin;
-	const body = ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /api/", "", `Sitemap: ${siteUrl}/sitemap.xml`, ""].join(
-		"\n",
-	);
+	const body = [
+		"User-agent: *",
+		"Allow: /",
+		"Disallow: /admin",
+		"Disallow: /api/",
+		"",
+		`Sitemap: ${siteUrl}/sitemap.xml`,
+		"",
+	].join("\n");
 	return c.text(body, 200, { "Content-Type": "text/plain; charset=utf-8" });
 });
 
@@ -44,6 +53,11 @@ app.get("/sitemap.xml", (c) => {
 		<loc>${siteUrl}/</loc>
 		<changefreq>weekly</changefreq>
 		<priority>1.0</priority>
+	</url>
+	<url>
+		<loc>${siteUrl}/status</loc>
+		<changefreq>hourly</changefreq>
+		<priority>0.6</priority>
 	</url>
 </urlset>
 `;
@@ -75,7 +89,10 @@ app.post("/api/register", async (c) => {
 		return c.json({ error: "Invalid request body" }, 400);
 	}
 
-	const email = typeof (body as { email?: unknown })?.email === "string" ? (body as { email: string }).email.trim().toLowerCase() : "";
+	const email =
+		typeof (body as { email?: unknown })?.email === "string"
+			? (body as { email: string }).email.trim().toLowerCase()
+			: "";
 
 	if (!email || !EMAIL_RE.test(email)) {
 		return c.json({ error: "Please enter a valid email address" }, 400);
@@ -99,13 +116,122 @@ app.post("/api/admin/login", async (c) => {
 		return c.json({ error: "Invalid request body" }, 400);
 	}
 
-	const password = typeof (body as { password?: unknown })?.password === "string" ? (body as { password: string }).password : "";
+	const password =
+		typeof (body as { password?: unknown })?.password === "string" ? (body as { password: string }).password : "";
 
 	if (!c.env.ADMIN_PASSWORD || !timingSafeEqual(password, c.env.ADMIN_PASSWORD)) {
 		return c.json({ error: "Incorrect password" }, 401);
 	}
 
 	return c.json({ ok: true });
+});
+
+app.get("/api/site-banner", async (c) => {
+	try {
+		const row = await c.env.DB.prepare("SELECT enabled, message FROM site_banner WHERE id = 1").first<{
+			enabled: number;
+			message: string;
+		}>();
+		return c.json({
+			enabled: Boolean(row?.enabled),
+			message: row?.message ?? "",
+		});
+	} catch (err) {
+		console.error("Failed to load site banner", err);
+		return c.json({ enabled: false, message: "" });
+	}
+});
+
+app.get("/api/status", async (c) => {
+	try {
+		const report = await buildStatusReport(c.env.DB, { record: true });
+		const httpStatus = report.overall === "outage" ? 503 : 200;
+		return c.json(report, httpStatus);
+	} catch (err) {
+		console.error("Failed to build status report", err);
+		return c.json(
+			{
+				overall: "outage",
+				checkedAt: new Date().toISOString(),
+				onlineSince: null,
+				uptime: { windowDays: 30, percent: null, sampleCount: 0, okCount: 0 },
+				components: [
+					{ id: "api", name: "API", status: "outage", latencyMs: null, detail: "Status check failed" },
+				],
+				notice: null,
+			},
+			503,
+		);
+	}
+});
+
+app.get("/api/admin/site-banner", async (c) => {
+	if (!requireAdmin(c)) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	try {
+		const row = await c.env.DB.prepare("SELECT enabled, message, updated_at FROM site_banner WHERE id = 1").first<{
+			enabled: number;
+			message: string;
+			updated_at: string;
+		}>();
+		return c.json({
+			enabled: Boolean(row?.enabled),
+			message: row?.message ?? "",
+			updatedAt: row?.updated_at ?? null,
+		});
+	} catch (err) {
+		console.error("Failed to load admin site banner", err);
+		return c.json({ error: "Something went wrong" }, 500);
+	}
+});
+
+app.put("/api/admin/site-banner", async (c) => {
+	if (!requireAdmin(c)) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+
+	let body: unknown;
+	try {
+		body = await c.req.json();
+	} catch {
+		return c.json({ error: "Invalid request body" }, 400);
+	}
+
+	const enabled = Boolean((body as { enabled?: unknown })?.enabled);
+	const message =
+		typeof (body as { message?: unknown })?.message === "string"
+			? (body as { message: string }).message.trim().slice(0, 500)
+			: "";
+
+	if (enabled && !message) {
+		return c.json({ error: "Add banner text before turning it on." }, 400);
+	}
+
+	try {
+		await c.env.DB.prepare(
+			`UPDATE site_banner
+			 SET enabled = ?, message = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			 WHERE id = 1`,
+		)
+			.bind(enabled ? 1 : 0, message)
+			.run();
+
+		const row = await c.env.DB.prepare("SELECT enabled, message, updated_at FROM site_banner WHERE id = 1").first<{
+			enabled: number;
+			message: string;
+			updated_at: string;
+		}>();
+		return c.json({
+			enabled: Boolean(row?.enabled),
+			message: row?.message ?? "",
+			updatedAt: row?.updated_at ?? null,
+		});
+	} catch (err) {
+		console.error("Failed to update site banner", err);
+		return c.json({ error: "Something went wrong" }, 500);
+	}
 });
 
 app.get("/api/admin/registrations", async (c) => {
@@ -147,4 +273,11 @@ app.get("/api/admin/registrations", async (c) => {
 	}
 });
 
-export default app;
+const worker = {
+	fetch: app.fetch,
+	async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+		ctx.waitUntil(recordScheduledStatusSample(env));
+	},
+};
+
+export default worker;

@@ -1,18 +1,39 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArchiveIcon, GlobeIcon, LockIcon, MoreHorizontalIcon, PinIcon, TrashIcon, UserIcon } from "../../components/Icons";
+import {
+	ArchiveIcon,
+	CheckIcon,
+	GlobeIcon,
+	LockIcon,
+	MoreHorizontalIcon,
+	PinIcon,
+	ShareIcon,
+	TrashIcon,
+	UserIcon,
+} from "../../components/Icons";
 import { Modal } from "./ui";
 
-export type ChatMenuAction = "pin" | "unpin" | "archive" | "unarchive" | "make-global" | "make-private" | "delete";
+export type ChatMenuAction =
+	| "pin"
+	| "unpin"
+	| "archive"
+	| "unarchive"
+	| "make-global"
+	| "make-private"
+	| "delete"
+	| "share"
+	| "mark-all-read";
 
 export function ChatOverflowMenu({
 	pinned,
 	archived,
 	scope,
+	showMarkAllRead,
 	onAction,
 }: {
 	pinned: boolean;
 	archived: boolean;
 	scope: "personal" | "global";
+	showMarkAllRead?: boolean;
 	onAction: (action: ChatMenuAction) => void;
 }) {
 	const [open, setOpen] = useState(false);
@@ -28,6 +49,20 @@ export function ChatOverflowMenu({
 	}, [open]);
 
 	const items: { action: ChatMenuAction; label: string; icon: ReactNode; tone?: "rose" }[] = [
+		{
+			action: "share",
+			label: "Share",
+			icon: <ShareIcon className="size-3.5" />,
+		},
+		...(showMarkAllRead
+			? [
+					{
+						action: "mark-all-read" as const,
+						label: "Mark all as read",
+						icon: <CheckIcon className="size-3.5" />,
+					},
+				]
+			: []),
 		{
 			action: pinned ? "unpin" : "pin",
 			label: pinned ? "Unpin" : "Pin",
@@ -128,17 +163,19 @@ export function ScopeConfirmDialog({
 						{makingGlobal ? (
 							<>
 								<p>
-									This conversation will leave your personal list and appear in <strong className="font-semibold text-violet-50">Global</strong> for
-									everyone on the Beacon team.
+									This conversation will leave your personal list and appear in{" "}
+									<strong className="font-semibold text-violet-50">Global</strong> for everyone on the Beacon team.
 								</p>
-								<p>Teammates can read the full thread. Prefer Global when the answer should become shared team memory.</p>
+								<p>
+									Teammates can read the full thread. Prefer Global when the answer should become shared team memory.
+								</p>
 								<p className="text-violet-300/60">Personal chats are never shared. Once global, this one will be.</p>
 							</>
 						) : (
 							<>
 								<p>
-									This conversation will leave <strong className="font-semibold text-violet-50">Global</strong> and move to your personal
-									chats.
+									This conversation will leave <strong className="font-semibold text-violet-50">Global</strong> and move
+									to your personal chats.
 								</p>
 								<p>Teammates will no longer see it in the shared feed. Personal chats are never shared.</p>
 								<p className="text-violet-300/60">Ask in Global again later if the team should reuse the answer.</p>

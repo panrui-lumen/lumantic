@@ -31,7 +31,7 @@ export function Hero({ onRegisterClick }: { onRegisterClick: () => void }) {
 						</span>
 						<span className="mt-5 block text-[1.7rem] leading-[1.2] font-semibold text-violet-50 sm:text-[2.5rem] sm:leading-[1.15] lg:text-[2.85rem] xl:text-[3.2rem]">
 							<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
-								Lumantic fixes all three in 2&nbsp;months
+								Lumantic fixes all three in 2&nbsp;weeks
 							</span>{" "}
 							to help you grow even faster.
 						</span>

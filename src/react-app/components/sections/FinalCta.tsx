@@ -13,7 +13,7 @@ export function FinalCta({ onRegisterClick }: { onRegisterClick: () => void }) {
 				<h2 className="font-display text-3xl font-semibold tracking-tight text-violet-50 sm:text-4xl">
 					Get an end-to-end data solution without building a data team from scratch —{" "}
 					<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
-						in 2 months
+						in 2 weeks
 					</span>
 				</h2>
 				<GlowCta className="mt-9">

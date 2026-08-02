@@ -31,7 +31,7 @@ test.describe("landing page", () => {
 
 		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 		await expect(page.getByText("Growing fast.")).toBeVisible();
-		await expect(page.getByText(/Lumantic fixes all three in 2[\s\u00a0]months/i)).toBeVisible();
+		await expect(page.getByText(/Lumantic fixes all three in 2[\s\u00a0]weeks/i)).toBeVisible();
 		await expect(page.getByText(/to help you grow even faster/i)).toBeVisible();
 
 		if (project === "desktop") {
@@ -40,7 +40,7 @@ test.describe("landing page", () => {
 		}
 
 		const headline = page.locator("h1 > span").nth(1);
-		await expect(headline).toContainText(/Lumantic fixes all three in 2[\s\u00a0]months to help you grow even faster\./);
+		await expect(headline).toContainText(/Lumantic fixes all three in 2[\s\u00a0]weeks to help you grow even faster\./);
 
 		expect(await pageHasHorizontalOverflow(page)).toBe(false);
 

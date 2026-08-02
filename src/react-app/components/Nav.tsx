@@ -19,19 +19,19 @@ export function Nav({ onRegisterClick }: { onRegisterClick: () => void }) {
 			}`}
 		>
 			<nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
-				<a href="#top" className="flex min-w-0 items-center gap-2.5">
-					<img src={logo} alt="Lumantic" className="h-7 w-7 shrink-0 drop-shadow-[0_0_12px_rgba(184,148,255,0.6)]" />
+					<a href="/" className="flex min-w-0 items-center gap-2.5">
+					<img src={logo} alt="Lumantic" className="h-7 w-7 shrink-0" />
 					<span className="font-display text-lg font-semibold tracking-tight text-violet-50">Lumantic</span>
 				</a>
 
 				<div className="hidden items-center gap-8 text-sm text-violet-200/70 md:flex">
-					<a href="#problem" className="transition hover:text-violet-50">
+					<a href="/#problem" className="transition hover:text-violet-50">
 						Why Lumantic
 					</a>
-					<a href="#product" className="transition hover:text-violet-50">
-						Product
+					<a href="/#product" className="transition hover:text-violet-50">
+						What you get
 					</a>
-					<a href="#how-it-works" className="transition hover:text-violet-50">
+					<a href="/how-it-works" className="transition hover:text-violet-50">
 						How it works
 					</a>
 				</div>

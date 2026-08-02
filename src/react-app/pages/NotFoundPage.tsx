@@ -15,6 +15,7 @@ const KNOWN_APP_PREFIXES = [
 export function isKnownSitePath(pathname: string): boolean {
 	const path = pathname.replace(/\/+$/, "") || "/";
 	if (path === "/") return true;
+	if (path === "/how-it-works") return true;
 	if (path === "/status") return true;
 	if (path === "/admin" || path.startsWith("/admin/")) return true;
 	if (path === "/app") return true;

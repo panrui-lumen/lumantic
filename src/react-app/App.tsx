@@ -1,6 +1,7 @@
 import "./index.css";
 import { Toaster } from "sonner";
 import { LandingPage } from "./pages/LandingPage";
+import { HowItWorksPage } from "./pages/HowItWorksPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AppPage } from "./pages/app/AppPage";
 import { SharedChatPage } from "./pages/app/SharedChatPage";
@@ -21,6 +22,8 @@ function App() {
 		<AppPage />
 	) : path === "/status" ? (
 		<StatusPage />
+	) : path === "/how-it-works" ? (
+		<HowItWorksPage />
 	) : (
 		<LandingPage />
 	);

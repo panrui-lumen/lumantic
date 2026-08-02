@@ -10,7 +10,9 @@ export function Footer() {
 						<span className="font-display text-base font-semibold text-violet-50">Lumantic</span>
 					</div>
 
-					<p className="max-w-md text-sm text-violet-300/50">All you need is Lumantic.</p>
+					<p className="max-w-md text-sm text-violet-300/50">
+						Trusted data and fast answers — without building a data team.
+					</p>
 				</div>
 
 				<div className="mt-10 border-t border-violet-500/10 pt-6 text-xs text-violet-400/40">

@@ -5,7 +5,7 @@ import { RegisterModal } from "../components/RegisterModal";
 import { Hero } from "../components/sections/Hero";
 import { ProblemSection } from "../components/sections/ProblemSection";
 import { SolutionSection } from "../components/sections/SolutionSection";
-import { WorkedExample } from "../components/sections/WorkedExample";
+import { ProductPreview } from "../components/sections/ProductPreview";
 import { FinalCta } from "../components/sections/FinalCta";
 
 export function LandingPage() {
@@ -18,7 +18,7 @@ export function LandingPage() {
 				<Hero onRegisterClick={() => setModalOpen(true)} />
 				<ProblemSection />
 				<SolutionSection />
-				<WorkedExample />
+				<ProductPreview />
 				<FinalCta onRegisterClick={() => setModalOpen(true)} />
 			</main>
 			<Footer />

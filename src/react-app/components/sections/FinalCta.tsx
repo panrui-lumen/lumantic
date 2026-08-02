@@ -4,19 +4,21 @@ import { ArrowRight } from "../Icons";
 
 export function FinalCta({ onRegisterClick }: { onRegisterClick: () => void }) {
 	return (
-		<section className="relative overflow-hidden border-t border-violet-500/10 py-28">
-			<div aria-hidden className="pointer-events-none absolute inset-0">
-				<div className="animate-pulse-glow absolute top-1/2 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
-			</div>
-
-			<Reveal className="relative mx-auto max-w-5xl px-6 text-center">
+		<section className="relative border-t border-violet-500/10 py-20 sm:py-24">
+			<Reveal className="relative mx-auto max-w-3xl px-6 text-center">
 				<h2 className="font-display text-3xl font-semibold tracking-tight text-violet-50 sm:text-4xl">
-					Get an end-to-end data solution without building a data team from scratch —{" "}
-					<span className="text-glow bg-gradient-to-r from-violet-300 to-violet-400 bg-clip-text text-transparent">
-						in 2 weeks
-					</span>
+					Trusted data.
+					<br />
+					Fast answers.
+					<br />
+					No data team to hire.
 				</h2>
-				<GlowCta className="mt-9">
+				<p className="mx-auto mt-5 text-base text-violet-200/65">
+					Live in 2 weeks.
+					<br />
+					Register your interest and we'll be in touch.
+				</p>
+				<GlowCta className="mt-8">
 					<button
 						onClick={onRegisterClick}
 						className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-violet-500 px-7 py-4 text-sm font-semibold text-white transition hover:brightness-110"
